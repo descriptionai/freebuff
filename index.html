@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSN 대한민국 - 뉴스, 스포츠, 날씨, 금융</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='8' rx='6' ry='5.5' fill='%230B6EF3'/%3E%3Cellipse cx='16' cy='8' rx='6' ry='5.5' fill='%23FF63A0' transform='rotate(90 16 16)'/%3E%3Cellipse cx='16' cy='8' rx='6' ry='5.5' fill='%23F2B705' transform='rotate(180 16 16)'/%3E%3Cellipse cx='16' cy='8' rx='6' ry='5.5' fill='%232BB673' transform='rotate(270 16 16)'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --blue: #0b6ef3;
+      --blue-dark: #0a4eb3;
+      --ink: #1a1a1a;
+      --ink2: #4d4d4d;
+      --ink3: #767676;
+      --line: #e5e7eb;
+      --bg: #eef0f4;
+      --radius: 10px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font-family: inherit; cursor: pointer; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ===== 상단 바 (검색 영역) ===== */
+    .topbar {
+      background:
+        radial-gradient(1100px 320px at 8% -80%, rgba(122,168,236,.6), transparent 60%),
+        radial-gradient(900px 320px at 92% 130%, rgba(96,133,214,.5), transparent 55%),
+        linear-gradient(165deg, #dde6f3 0%, #cdd8ec 45%, #bcc9e2 100%);
+      border-bottom: 1px solid rgba(255,255,255,.4);
+    }
+    .topbar-inner {
+      max-width: 1260px;
+      margin: 0 auto;
+      height: 68px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .icon-btn {
+      width: 38px; height: 38px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(255,255,255,.65);
+      color: #2c3c5c;
+      transition: background .2s, transform .2s, box-shadow .2s;
+    }
+    .icon-btn:hover {
+      background: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(30,50,90,.15);
+    }
+    .icon-btn:active { transform: translateY(0) scale(.96); }
+
+    .search-box {
+      flex: 1;
+      max-width: 620px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 46px;
+      padding: 0 6px 0 16px;
+      background: #fff;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.9);
+      box-shadow: 0 3px 14px rgba(30,50,90,.16);
+      transition: box-shadow .25s;
+    }
+    .search-box:focus-within {
+      box-shadow: 0 0 0 3px rgba(11,110,243,.25), 0 3px 14px rgba(30,50,90,.16);
+    }
+    .search-box .s-icon { color: #8a94a6; flex-shrink: 0; display: grid; }
+    .search-box input {
+      flex: 1; min-width: 0;
+      border: 0; outline: 0; background: transparent;
+      font-size: 14px; color: var(--ink);
+      padding: 0 6px;
+    }
+    .search-box input::placeholder { color: #9aa3b2; }
+    .mini-btn {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: 50%; border: 0; background: transparent;
+      display: grid; place-items: center; color: #4a5a78;
+      transition: background .2s;
+    }
+    .mini-btn:hover { background: #eef2f8; }
+    .ai-btn {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: 50%; border: 0;
+      background: linear-gradient(135deg, #0b6ef3 0%, #7b5cff 45%, #ff5ca8 80%, #ffb020 105%);
+      display: grid; place-items: center; color: #fff;
+      box-shadow: 0 2px 6px rgba(100,80,220,.4);
+      transition: transform .2s;
+    }
+    .ai-btn:hover { transform: scale(1.08); }
+    .search-go {
+      border: 0; flex-shrink: 0;
+      background: var(--blue); color: #fff;
+      font-size: 14px; font-weight: 700;
+      padding: 9px 20px; border-radius: 999px;
+      transition: background .2s, transform .15s;
+    }
+    .search-go:hover { background: #0a5fd4; transform: translateY(-1px); }
+
+    .top-utils {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .loc-weather {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 700; color: #26334d;
+      margin-right: 4px;
+    }
+    .loc-weather .deg { color: var(--blue-dark); font-weight: 800; }
+    .login-btn {
+      border: 0;
+      background: var(--blue); color: #fff;
+      font-size: 14px; font-weight: 700;
+      padding: 9px 22px; border-radius: 999px;
+      margin-left: 4px;
+      box-shadow: 0 2px 8px rgba(11,110,243,.35);
+      transition: background .2s, transform .15s;
+    }
+    .login-btn:hover { background: #0a5fd4; transform: translateY(-1px); }
+
+    /* ===== MSN 헤더 ===== */
+    .msn-header {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 60;
+    }
+    .msn-inner {
+      max-width: 1260px;
+      margin: 0 auto;
+      height: 60px;
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 20px;
+    }
+    .logo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .logo .word { font-size: 24px; font-weight: 800; letter-spacing: -.04em; color: #111; }
+    .nav { display: flex; gap: 4px; flex: 1; min-width: 0; }
+    .nav a {
+      padding: 7px 13px;
+      border-radius: 999px;
+      font-size: 14px; font-weight: 600; color: #333;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+    .nav a:hover { background: #f2f4f8; color: var(--blue); }
+    .nav a.active { background: #e7f1ff; color: var(--blue-dark); font-weight: 700; }
+    .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .ghost-btn {
+      display: flex; align-items: center; gap: 7px;
+      border: 1px solid #d4d9e2;
+      background: #fff; color: #3a4557;
+      font-size: 13px; font-weight: 600;
+      padding: 8px 14px; border-radius: 999px;
+      transition: background .2s, border-color .2s, transform .15s;
+    }
+    .ghost-btn:hover {
+      background: #f5f7fb; border-color: #b9c2d0;
+      transform: translateY(-1px);
+    }
+
+    /* ===== 본문 그리드 ===== */
+    .main { max-width: 1260px; margin: 0 auto; padding: 22px 24px 70px; }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1.28fr) minmax(0,1.28fr) minmax(0,1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: box-shadow .25s, transform .25s, border-color .25s;
+    }
+    .card:hover { box-shadow: 0 8px 24px rgba(15,40,80,.08); border-color: #d8dce3; }
+    .card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 16px 8px;
+    }
+    .card-head h2 {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 16px; font-weight: 800; letter-spacing: -.01em;
+    }
+    .card-head h2 .pin { color: var(--blue); display: grid; }
+    .head-tools { display: flex; align-items: center; gap: 2px; color: #9aa3b2; }
+    .more-btn {
+      width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent;
+      display: grid; place-items: center; color: #9aa3b2;
+      transition: background .15s, color .15s;
+    }
+    .more-btn:hover { background: #f0f3f8; color: #4a5a78; }
+
+    .img-wrap { position: relative; overflow: hidden; background: #dfe4ec; }
+    .img-wrap img {
+      width: 100%; display: block;
+      transition: transform .6s cubic-bezier(.2,.7,.2,1);
+    }
+    .img-wrap:hover img { transform: scale(1.05); }
+    .ratio-32 { aspect-ratio: 3 / 2; }
+    .ratio-169 { aspect-ratio: 16 / 9; }
+
+    /* 뉴스 메인 카드 */
+    .hero { position: relative; cursor: pointer; }
+    .hero img { aspect-ratio: 3/2; width: 100%; object-fit: cover; display: block; filter: grayscale(.85) contrast(1.06); transition: transform .6s cubic-bezier(.2,.7,.2,1), filter .3s; }
+    .hero:hover img { transform: scale(1.05); filter: grayscale(.5) contrast(1.06); }
+    .hero::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,.05) 25%, rgba(0,0,0,.74) 100%);
+      pointer-events: none;
+    }
+    .hero-content { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 14px; gap: 8px; z-index: 1; }
+    .src-badge {
+      align-self: flex-start;
+      background: #d93025; color: #fff;
+      font-size: 10.5px; font-weight: 700; letter-spacing: .01em;
+      padding: 4px 9px; border-radius: 4px;
+    }
+    .hero-content h3 {
+      color: #fff; font-size: 15.5px; font-weight: 700; line-height: 1.4;
+      text-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+
+    .news-list { list-style: none; }
+    .news-list li {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 9.5px 14px;
+      border-top: 1px solid #f3f4f6;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .news-list li:hover { background: #f6f9ff; }
+    .news-list li:hover .t { color: var(--blue); }
+    .news-list .t { font-size: 13.5px; line-height: 1.42; color: #23262b; transition: color .15s; }
+    .chip {
+      flex-shrink: 0; width: 22px; height: 22px; margin-top: 1px;
+      border-radius: 5px;
+      display: grid; place-items: center;
+      color: #fff; font-size: 9px; font-weight: 800;
+    }
+    .chip-bar {
+      width: 14px; height: 4px; border-radius: 2px; margin-top: 9px; flex-shrink: 0;
+    }
+    .ad-tag {
+      flex-shrink: 0; font-size: 10px; font-weight: 800; color: #ff7a00;
+      border: 1px solid #ffcf9e; background: #fff7ef;
+      border-radius: 4px; padding: 2px 6px; margin-top: 1px;
+    }
+    .dots {
+      display: flex; justify-content: center; gap: 6px;
+      padding: 11px 0 13px; border-top: 1px solid #f3f4f6;
+    }
+    .dots i {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #cfd5dd; cursor: pointer; transition: background .2s, transform .2s;
+    }
+    .dots i:hover { background: #aab3c0; }
+    .dots i.on { background: var(--blue); transform: scale(1.3); }
+
+    /* 추천 항목 */
+    .feed-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 16px;
+      transition: background .15s;
+    }
+    .feed-item:hover { background: #f8fafd; }
+    .feed-logo {
+      width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+      display: grid; place-items: center;
+      color: #fff; font-size: 11px; font-weight: 800;
+    }
+    .feed-name { flex: 1; font-size: 14px; font-weight: 600; color: #2b2f36; }
+    .feed-add {
+      width: 30px; height: 30px; flex-shrink: 0;
+      border-radius: 50%;
+      border: 1.5px dashed #b9c2d0; background: #fff;
+      color: #6b7686;
+      display: grid; place-items: center;
+      transition: all .25s;
+    }
+    .feed-add:hover { border-color: var(--blue); color: var(--blue); transform: scale(1.08); }
+    .feed-add.added { border-style: solid; border-color: var(--blue); background: var(--blue); color: #fff; transform: scale(1); }
+    .feed-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px 8px;
+      border-top: 1px solid #f3f4f6;
+    }
+    .feed-foot a { color: var(--blue); font-size: 13px; font-weight: 600; }
+    .feed-foot a:hover { text-decoration: underline; }
+
+    /* 글 순위 */
+    .rank-list { list-style: none; padding: 2px 0 8px; }
+    .rank-list li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 16px; cursor: pointer;
+      transition: background .15s;
+    }
+    .rank-list li:hover { background: #f6f9ff; }
+    .rank-list li:hover .rt { color: var(--blue); }
+    .rank-num { flex-shrink: 0; font-size: 15px; font-weight: 800; color: #b9c2d0; width: 16px; text-align: center; }
+    .rank-list li:nth-child(-n+3) .rank-num { color: var(--blue); }
+    .rt { flex: 1; font-size: 13.5px; line-height: 1.4; color: #2b2f36; transition: color .15s; }
+    .rank-cmt {
+      flex-shrink: 0; display: flex; align-items: center; gap: 3px;
+      font-size: 11px; color: #8a94a6;
+    }
+
+    /* 아티클 카드 (이미지 + 본문) */
+    .article { display: flex; flex-direction: column; cursor: pointer; }
+    .article-body { display: flex; flex-direction: column; gap: 8px; padding: 13px 14px 10px; flex: 1; }
+    .article-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11.5px; font-weight: 600; color: var(--ink3);
+    }
+    .article-meta .dot-sep { width: 3px; height: 3px; border-radius: 50%; background: #c3c9d2; }
+    .article-title { font-size: 14.5px; font-weight: 700; line-height: 1.45; color: #1f2329; transition: color .15s; }
+    .article:hover .article-title { color: var(--blue); }
+    .sponsor {
+      font-size: 11px; color: #a0a7b3; font-weight: 500;
+      margin-top: auto; padding-top: 4px;
+    }
+    .acts {
+      display: flex; align-items: center; gap: 4px;
+      border-top: 1px solid #f3f4f6;
+      padding: 8px 10px;
+    }
+    .act {
+      display: flex; align-items: center; gap: 5px;
+      border: 0; background: transparent;
+      color: #8a94a6; font-size: 12px; font-weight: 600;
+      padding: 6px 9px; border-radius: 999px;
+      transition: background .15s, color .15s;
+    }
+    .act:hover { background: #f0f4fb; color: var(--blue); }
+    .act.on { color: var(--blue); }
+
+    /* 스포츠 (Rogaland) */
+    .sports-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+    .sports-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; }
+    .sports-title .dd { display: grid; color: #8a94a6; }
+    .sports-tools { display: flex; align-items: center; color: #9aa3b2; }
+    .refresh-btn { width: 28px; height: 28px; border: 0; background: transparent; border-radius: 50%; display: grid; place-items: center; color: #9aa3b2; transition: background .15s, color .15s; }
+    .refresh-btn:hover { background: #f0f3f8; color: #4a5a78; }
+    .teams {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 5px 10px;
+      padding: 4px 16px 14px;
+    }
+    .team { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #3a3f47; padding: 2px 0; }
+    .team .logo {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center;
+      color: #fff; font-size: 9px; font-weight: 800;
+    }
+    .team .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .team .score {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 11px; font-weight: 800; color: #d92d20;
+      background: #fdeeee; padding: 2.5px 7px; border-radius: 999px;
+    }
+    .sports-foot { border-top: 1px solid #f3f4f6; padding: 10px 16px; }
+    .sports-foot a { color: var(--blue); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 3px; }
+    .sports-foot a:hover { text-decoration: underline; }
+
+    /* 날씨 */
+    .weather-card {
+      background: linear-gradient(160deg, #103a6e 0%, #1b55a0 65%, #2a6fc2 100%);
+      color: #fff;
+      border-color: #1b55a0;
+    }
+    .weather-card:hover { border-color: #2a6fc2; box-shadow: 0 10px 26px rgba(16,58,110,.28); }
+    .weather-head { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px 2px; }
+    .weather-city { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; }
+    .weather-city .dd { display: grid; color: #bcd4f2; }
+    .weather-temp { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; }
+    .weather-humidity { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #cfe0f5; }
+    .wtabs { display: flex; gap: 6px; padding: 12px 16px 2px; }
+    .wtab {
+      border: 0; background: transparent; color: #cfe0f5;
+      font-size: 12px; font-weight: 600;
+      padding: 5px 12px; border-radius: 999px;
+      transition: background .2s, color .2s;
+    }
+    .wtab.active { background: rgba(255,255,255,.22); color: #fff; font-weight: 700; }
+    .hourly {
+      display: flex; justify-content: space-between; gap: 2px;
+      padding: 14px 14px 10px;
+    }
+    .hour { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 34px; }
+    .hour .tt { font-size: 11px; color: #d8e7fa; }
+    .hour .ic { display: grid; color: #ffe9a8; }
+    .hour .tmp { font-size: 13px; font-weight: 700; }
+    .hour .pp { font-size: 10px; color: #a9c9ee; }
+    .daily { padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .drow { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+    .drow .d { width: 42px; font-weight: 700; }
+    .drow .ic { display: grid; color: #ffe9a8; }
+    .drow .lo { margin-left: auto; color: #bcd4f2; }
+    .drow .hi { width: 40px; text-align: right; font-weight: 700; }
+    .weather-foot { border-top: 1px solid rgba(255,255,255,.16); padding: 11px 16px; }
+    .weather-foot a { color: #cfddff; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+    .weather-foot a:hover { color: #fff; }
+
+    /* 시장 */
+    .market-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      border-top: 1px solid #f3f4f6;
+      transition: background .15s;
+      cursor: pointer;
+    }
+    .market-row:first-of-type { border-top: 0; }
+    .market-row:hover { background: #f6f9ff; }
+    .m-name { flex-shrink: 0; font-size: 13.5px; font-weight: 700; }
+    .m-code { flex-shrink: 0; font-size: 10.5px; color: #a0a7b3; font-weight: 600; }
+    .m-chart { flex-shrink: 0; width: 84px; height: 26px; }
+    .m-chart svg { width: 100%; height: 100%; display: block; }
+    .m-chg { margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 800; }
+    .m-val { flex-shrink: 0; width: 68px; text-align: right; font-size: 13.5px; font-weight: 800; }
+
+    /* 푸터 */
+    .footer {
+      border-top: 1px solid var(--line);
+      background: #fff;
+      padding: 26px 24px 40px;
+      text-align: center;
+      color: #9aa3b2; font-size: 12px;
+    }
+    .footer .flinks { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; }
+    .footer .flinks a:hover { color: var(--blue); text-decoration: underline; }
+
+    /* 토스트 */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%;
+      transform: translate(-50%, 16px);
+      background: #1f2937; color: #fff;
+      font-size: 13.5px; font-weight: 500;
+      padding: 12px 22px; border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s, transform .3s;
+      z-index: 999; max-width: 90vw;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1080px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .top-utils .icon-btn, .top-utils .loc-weather { display: none; }
+      .header-actions { display: none; }
+    }
+    @media (max-width: 620px) {
+      .grid { grid-template-columns: 1fr; }
+      .topbar-inner { height: 58px; padding: 0 14px; }
+      .search-go { padding: 8px 14px; }
+      .topbar .icon-btn { display: none; }
+      .msn-inner { padding: 0 14px; height: 54px; }
+      .nav { gap: 0; overflow-x: auto; scrollbar-width: none; }
+      .nav::-webkit-scrollbar { display: none; }
+      .nav a { padding: 7px 10px; font-size: 13px; }
+      .main { padding: 16px 14px 50px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 상단 바 ===== -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <button class="icon-btn" id="appsBtn" aria-label="앱 목록">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="5" height="5" rx="1.2"/><rect x="15" y="4" width="5" height="5" rx="1.2"/><rect x="4" y="15" width="5" height="5" rx="1.2"/><rect x="15" y="15" width="5" height="5" rx="1.2"/></svg>
+      </button>
+
+      <form class="search-box" id="searchForm" autocomplete="off">
+        <span class="s-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+        <input id="searchInput" type="text" placeholder="웹 검색" aria-label="웹 검색" />
+        <button type="button" class="mini-btn" id="micBtn" aria-label="음성 검색">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+        </button>
+        <button type="button" class="ai-btn" id="aiBtn" aria-label="AI 검색">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.65 4.6 2.55 6.5 7 7-4.45.5-6.35 2.4-7 7-.65-4.6-2.55-6.5-7-7 4.45-.5 6.35-2.4 7-7z"/></svg>
+        </button>
+        <button type="submit" class="search-go">검색</button>
+      </form>
+
+      <div class="top-utils">
+        <span class="loc-weather">
+          대전광역시
+          <span style="display:grid;color:#3b5ba6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/><circle cx="10" cy="5.5" r="2"/><path d="M12.5 2.5h.01M15 3.8h.01"/></svg></span>
+          <span class="deg">27°C</span>
+        </span>
+        <button class="icon-btn" id="pencilBtn" aria-label="사용자 지정">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4L8 20l-5 1 1-5L17 3z"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" aria-label="설정">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>
+        </button>
+        <button class="login-btn" id="loginBtn">로그인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MSN 헤더 ===== -->
+  <header class="msn-header">
+    <div class="msn-inner">
+      <a class="logo" href="#" onclick="return false;">
+        <svg width="27" height="27" viewBox="0 0 32 32">
+          <ellipse cx="16" cy="8" rx="6" ry="5.5" fill="#0B6EF3"/>
+          <ellipse cx="16" cy="8" rx="6" ry="5.5" fill="#FF63A0" transform="rotate(90 16 16)"/>
+          <ellipse cx="16" cy="8" rx="6" ry="5.5" fill="#F2B705" transform="rotate(180 16 16)"/>
+          <ellipse cx="16" cy="8" rx="6" ry="5.5" fill="#2BB673" transform="rotate(270 16 16)"/>
+          <circle cx="16" cy="16" r="4" fill="#fff"/>
+        </svg>
+        <span class="word">msn</span>
+      </a>
+      <nav class="nav">
+        <a href="#" class="active">발견하기</a>
+        <a href="#">뉴스</a>
+        <a href="#">스포츠</a>
+        <a href="#">캐주얼 게임</a>
+        <a href="#">금융</a>
+        <a href="#">날씨</a>
+        <a href="#">동영상</a>
+      </nav>
+      <div class="header-actions">
+        <button class="ghost-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          피드 레이아웃
+        </button>
+        <button class="ghost-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>
+          개인 설정
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== 본문 ===== -->
+  <main class="main">
+    <div class="grid">
+
+      <!-- 1열 -->
+      <section class="col">
+        <!-- 뉴스 메인 -->
+        <article class="card news-main">
+          <div class="hero">
+            <img src="https://picsum.photos/seed/msn-hero/640/420" alt="기사 대표 이미지" loading="lazy" />
+            <div class="hero-content">
+              <span class="src-badge">스타뉴스 Starnews Korea</span>
+              <h3>극우 유튜버 故배인규, 영면에 들다 "나만 아는 …"</h3>
+            </div>
+          </div>
+          <ul class="news-list">
+            <li>
+              <span class="chip" style="background:#0b6ef3">SBS</span>
+              <span class="t">제주·인천서 김민석 47.75%로 이겼다…민주당 3연승 기세</span>
+            </li>
+            <li>
+              <span class="chip" style="background:#d93025">M</span>
+              <span class="t">매일이 죽음의 공포에 뒤덮인 우크라이…전선의 일상</span>
+            </li>
+            <li>
+              <span class="chip" style="background:#c00">M</span>
+              <span class="t">다니엘 헤니, 韓활동 뜸하더니 '이곳'서…새 근황</span>
+            </li>
+            <li>
+              <span class="chip" style="background:#0054c7">7</span>
+              <span class="t">7명 희생 태국 총기난사 학교, 충격 속 애도 물결</span>
+            </li>
+            <li>
+              <span class="chip-bar" style="background:#9aa3b2"></span>
+              <span class="t">한국 여행 트렌드 급변, 외국인들 이제 서핑·캠핑 즐긴다</span>
+            </li>
+            <li>
+              <span class="chip" style="background:#d93025">축</span>
+              <span class="t">[오피셜] '韓 축구 안타까운 소식' 개막 3연패 위기</span>
+            </li>
+            <li>
+              <span class="chip" style="background:#e02e4d">J</span>
+              <span class="t">비혼이 '힙'하던 시대 끝났다…30대 언니들의 선택</span>
+            </li>
+            <li>
+              <span class="t">3초 급속냉각판+100단 에어컨 바람 OK</span>
+              <span class="ad-tag">광고</span>
+            </li>
+          </ul>
+          <div class="dots">
+            <i class="on"></i><i></i><i></i><i></i>
+          </div>
+        </article>
+
+        <!-- 추천 항목 -->
+        <article class="card feeds">
+          <div class="card-head">
+            <h2>
+              <span class="pin"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1.9 0 3 1.7 3 3.5 0 1.8-1.1 4.5-3 4.5S9 7.3 9 5.5C9 3.7 10.1 2 12 2z"/><path d="M6 22l6-5 6 5-1.2-8H7.2L6 22z"/></svg></span>
+              추천 항목
+            </h2>
+            <button class="more-btn" aria-label="더보기">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+          <div class="feed-item" data-name="TV 리포트">
+            <span class="feed-logo" style="background:#7b5cff">TV</span>
+            <span class="feed-name">TV 리포트</span>
+            <button class="feed-add" data-name="TV 리포트" aria-label="피드 추가"></button>
+          </div>
+          <div class="feed-item" data-name="논현일보">
+            <span class="feed-logo" style="background:#0b6ef3">논</span>
+            <span class="feed-name">논현일보</span>
+            <button class="feed-add" data-name="논현일보" aria-label="피드 추가"></button>
+          </div>
+          <div class="feed-item" data-name="위키트리">
+            <span class="feed-logo" style="background:#ff7a00">위</span>
+            <span class="feed-name">위키트리</span>
+            <button class="feed-add" data-name="위키트리" aria-label="피드 추가"></button>
+          </div>
+          <div class="feed-item" data-name="연합뉴스">
+            <span class="feed-logo" style="background:#f2b705;color:#3d2c00">연</span>
+            <span class="feed-name">연합뉴스</span>
+            <button class="feed-add" data-name="연합뉴스" aria-label="피드 추가"></button>
+          </div>
+          <div class="feed-item" data-name="스포츠조선">
+            <span class="feed-logo" style="background:#d93025">스</span>
+            <span class="feed-name">스포츠조선</span>
+            <button class="feed-add" data-name="스포츠조선" aria-label="피드 추가"></button>
+          </div>
+          <div class="feed-foot">
+            <a href="#">피드 개인 설정</a>
+            <div class="dots" style="border:0;padding:0">
+              <i class="on"></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </article>
+
+        <!-- 주목할 만한 글 순위 -->
+        <article class="card ranks">
+          <div class="card-head">
+            <h2>주목할 만한 글 순위</h2>
+            <button class="more-btn" aria-label="더보기">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+          <ul class="rank-list">
+            <li>
+              <span class="rank-num">1</span>
+              <span class="rt">홍준표 "이 대통령 큰 수…"</span>
+              <span class="rank-cmt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>9</span>
+            </li>
+            <li>
+              <span class="rank-num">2</span>
+              <span class="rt">"다 한글 쓰레기" 日서 '안전불감증' 논란</span>
+              <span class="rank-cmt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>6</span>
+            </li>
+            <li>
+              <span class="rank-num">3</span>
+              <span class="rt">[속보] 오늘 밤 전국 비…내일까지 최대 120mm</span>
+              <span class="rank-cmt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>3</span>
+            </li>
+            <li>
+              <span class="rank-num">4</span>
+              <span class="rt">KLPGA 개막전, 갤러리 '홀인원쇼'에 열광…하이라이트</span>
+              <span class="rank-cmt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>5</span>
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <!-- 2열 -->
+      <section class="col">
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-movie/640/360" alt="영화 관련 이미지" loading="lazy" />
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span>위키트리</span><span class="dot-sep"></span><span>1일</span></div>
+            <h3 class="article-title">26년 전 개봉해 580만 관객 돌파했던 레전드 한국 영화…디즈니+ 공개</h3>
+            <div class="acts">
+              <button class="act act-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7zm0 0l4-8.5c1.6 0 2.4 1 2.4 2.6L12.6 9h5.4a2 2 0 0 1 2 2.5l-1.6 7a2 2 0 0 1-2 1.5H7"/></svg>
+                <span class="count" data-base="892">892</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>
+                <span>45</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.2 10.9l7.6-3.7M8.2 13.1l7.6 3.7"/></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-sea/640/360" alt="게임 이미지" loading="lazy" />
+            <span class="ad-tag" style="position:absolute;top:10px;left:10px;background:rgba(255,255,255,.92);border:0">후원받음</span>
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span style="font-weight:700;color:#3a3f47">정복의 바다</span></div>
+            <h3 class="article-title">40세 이상이고 PC가 있다면 — 이 게임은 꼭 해봐야 합니다!</h3>
+          </div>
+        </article>
+
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-stage/640/360" alt="현장 이미지" loading="lazy" />
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span>연합뉴스</span><span class="dot-sep"></span><span>3시간</span></div>
+            <h3 class="article-title">'꿈의 무대'에 오른 그들…오디션 현장의 순간들</h3>
+            <div class="acts">
+              <button class="act act-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7zm0 0l4-8.5c1.6 0 2.4 1 2.4 2.6L12.6 9h5.4a2 2 0 0 1 2 2.5l-1.6 7a2 2 0 0 1-2 1.5H7"/></svg>
+                <span class="count" data-base="324">324</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>
+                <span>21</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.2 10.9l7.6-3.7M8.2 13.1l7.6 3.7"/></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- 3열 -->
+      <section class="col">
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-raid/640/360" alt="게임 이미지" loading="lazy" style="filter:saturate(1.15) hue-rotate(-8deg)" />
+            <span class="ad-tag" style="position:absolute;top:10px;left:10px;background:rgba(255,255,255,.92);border:0">후원받음</span>
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span style="font-weight:700;color:#3a3f47">Raid - 데스크톱 게임</span></div>
+            <h3 class="article-title">지금 바로 최고의 전략 RPG를 무료로 플레이하세요!</h3>
+          </div>
+        </article>
+
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-golf/640/360" alt="골프 이미지" loading="lazy" />
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span>골프한국</span><span class="dot-sep"></span><span>14시간</span></div>
+            <h3 class="article-title">강채연 "한번 떨어졌다고 제 골프인생이 끝나는 것은 아니니까요" [KLPGA 제주삼다수]</h3>
+            <div class="acts">
+              <button class="act act-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7zm0 0l4-8.5c1.6 0 2.4 1 2.4 2.6L12.6 9h5.4a2 2 0 0 1 2 2.5l-1.6 7a2 2 0 0 1-2 1.5H7"/></svg>
+                <span class="count" data-base="1210">1.2천</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>
+                <span>87</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.2 10.9l7.6-3.7M8.2 13.1l7.6 3.7"/></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card article">
+          <div class="img-wrap ratio-169">
+            <img src="https://picsum.photos/seed/msn-fire/640/360" alt="게임 이미지" loading="lazy" style="filter:saturate(1.3) sepia(.18)" />
+          </div>
+          <div class="article-body">
+            <div class="article-meta"><span>인벤</span><span class="dot-sep"></span><span>5시간</span></div>
+            <h3 class="article-title">신작 MMORPG '서버 여는 날' 공개…사전예약 폭주</h3>
+            <div class="acts">
+              <button class="act act-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4.5A1.5 1.5 0 0 1 3 18.5v-6A1.5 1.5 0 0 1 4.5 11H7zm0 0l4-8.5c1.6 0 2.4 1 2.4 2.6L12.6 9h5.4a2 2 0 0 1 2 2.5l-1.6 7a2 2 0 0 1-2 1.5H7"/></svg>
+                <span class="count" data-base="513">513</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-3.5A8 8 0 1 1 21 12z"/></svg>
+                <span>38</span>
+              </button>
+              <button class="act">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.2 10.9l7.6-3.7M8.2 13.1l7.6 3.7"/></svg>
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- 4열 -->
+      <section class="col">
+        <!-- Rogaland -->
+        <article class="card sports">
+          <div class="sports-head">
+            <div class="sports-title">
+              Rogaland
+              <span class="dd"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+            </div>
+            <div class="sports-tools">
+              <button class="refresh-btn" id="sportsRefresh" aria-label="새로고침">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 3v6h-6"/></svg>
+              </button>
+              <button class="more-btn" id="sportsMore" aria-label="더보기">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="teams">
+            <div class="team">
+              <span class="logo" style="background:#0a2f68">S</span>
+              <span class="nm">세이부</span>
+              <span class="score">2-1</span>
+            </div>
+            <div class="team">
+              <span class="logo" style="background:#b8860b">SB</span>
+              <span class="nm">소프트뱅크</span>
+            </div>
+            <div class="team">
+              <span class="logo" style="background:#12233f">L</span>
+              <span class="nm">지바롯데</span>
+              <span class="score">4-1</span>
+            </div>
+            <div class="team">
+              <span class="logo" style="background:#16324f">B</span>
+              <span class="nm">오릭스</span>
+            </div>
+            <div class="team">
+              <span class="logo" style="background:#0054a6">Y</span>
+              <span class="nm">요코하마</span>
+              <span class="score">4-3</span>
+            </div>
+            <div class="team">
+              <span class="logo" style="background:#b3002d">C</span>
+              <span class="nm">히로시마</span>
+            </div>
+          </div>
+          <div class="sports-foot">
+            <a href="#">Rogaland 더 보기
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- 날씨 -->
+        <article class="card weather-card">
+          <div class="weather-head">
+            <div class="weather-city">
+              대전광역시
+              <span class="dd"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+            </div>
+            <div class="weather-temp">
+              <span style="display:grid;color:#ffe9a8"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.1 5.1l1.8 1.8M17.1 17.1l1.8 1.8M18.9 5.1l-1.8 1.8M6.9 17.1l-1.8 1.8"/></svg></span>
+              27°C
+            </div>
+          </div>
+          <div class="weather-humidity" style="padding:6px 16px 0;justify-content:flex-end">
+            습도: 73%
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </div>
+          <div class="wtabs" id="wtabs">
+            <button class="wtab active" data-panel="hourly">매시간</button>
+            <button class="wtab" data-panel="daily">일일</button>
+          </div>
+
+          <div class="hourly" id="hourlyPanel">
+            <div class="hour"><span class="tt">지금</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.1 5.1l1.8 1.8M17.1 17.1l1.8 1.8M18.9 5.1l-1.8 1.8M6.9 17.1l-1.8 1.8"/></svg></span><span class="tmp">27°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">21시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/><circle cx="10" cy="5.5" r="2"/></svg></span><span class="tmp">26°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">22시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/></svg></span><span class="tmp">25°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">23시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/></svg></span><span class="tmp">25°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">0시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/><path d="M19 3.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7z"/></svg></span><span class="tmp">24°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">1시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span><span class="tmp">24°</span><span class="pp">2%</span></div>
+            <div class="hour"><span class="tt">2시</span><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span><span class="tmp">23°</span><span class="pp">2%</span></div>
+          </div>
+
+          <div class="daily hidden" id="dailyPanel">
+            <div class="drow"><span class="d">오늘</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.1 5.1l1.8 1.8M17.1 17.1l1.8 1.8M18.9 5.1l-1.8 1.8M6.9 17.1l-1.8 1.8"/></svg></span><span class="lo">22°</span><span class="hi">27°</span></div>
+            <div class="drow"><span class="d">내일</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/><circle cx="10" cy="5.5" r="2"/></svg></span><span class="lo">23°</span><span class="hi">29°</span></div>
+            <div class="drow"><span class="d">토</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.1 5.1l1.8 1.8M17.1 17.1l1.8 1.8M18.9 5.1l-1.8 1.8M6.9 17.1l-1.8 1.8"/></svg></span><span class="lo">24°</span><span class="hi">30°</span></div>
+            <div class="drow"><span class="d">일</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/></svg></span><span class="lo">22°</span><span class="hi">28°</span></div>
+            <div class="drow"><span class="d">월</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span><span class="lo">21°</span><span class="hi">26°</span></div>
+            <div class="drow"><span class="d">화</span><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5h10a3.5 3.5 0 0 0 .3-6.99A5.5 5.5 0 0 0 7.8 8.9 3.2 3.2 0 0 0 7.5 16.5z"/><path d="M19 3.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7z"/></svg></span><span class="lo">22°</span><span class="hi">27°</span></div>
+          </div>
+
+          <div class="weather-foot">
+            <a href="#">전체 일기 예보 보기
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- 시장 -->
+        <article class="card market">
+          <div class="card-head">
+            <h2>시장</h2>
+            <button class="more-btn" aria-label="더보기">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+          <div class="market-row">
+            <span class="m-name">코스피</span>
+            <span class="m-code">KS11</span>
+            <span class="m-chart" data-spark="4,3.2,3.6,2.8,3.4,2.6,3,2.4,2.2,1.8,1.4,0.9,1.1,0.6,0.3,0.5,0.1,0.4,0.2,0"></span>
+            <span class="m-chg" style="color:#16a34a">-0.60%</span>
+            <span class="m-val">2,638.50</span>
+          </div>
+          <div class="market-row">
+            <span class="m-name">코스닥</span>
+            <span class="m-code">KQ11</span>
+            <span class="m-chart" data-spark="2.5,2.8,2.2,2.6,2,2.3,1.7,1.9,1.5,1.2,1.4,0.9,1,0.7,0.5,0.6,0.3,0.4,0.2,0"></span>
+            <span class="m-chg" style="color:#16a34a">-0.36%</span>
+            <span class="m-val">798.81</span>
+          </div>
+        </article>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ===== 푸터 ===== -->
+  <footer class="footer">
+    <div class="flinks">
+      <a href="#">개인정보 처리방침</a>
+      <a href="#">이용약관</a>
+      <a href="#">도움말</a>
+      <a href="#">피드백 보내기</a>
+    </div>
+    <div>© 2026 MSN 대한민국 · 데모 페이지</div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const ICONS = {
+      plus: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+      check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>'
+    };
+
+    const $ = (s, c) => (c || document).querySelector(s);
+    const $$ = (s, c) => Array.from((c || document).querySelectorAll(s));
+
+    let toastTimer;
+    function toast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // 네비게이션
+    $$('.nav a').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      $$('.nav a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+      toast(a.textContent + ' 카테고리를 열었습니다 (데모)');
+    }));
+
+    // 검색
+    $('#searchForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const v = $('#searchInput').value.trim();
+      toast(v ? `'${v}' 검색은 데모 페이지입니다` : '검색어를 입력해주세요');
+    });
+
+    // 상단 유틸 버튼
+    $('#appsBtn').addEventListener('click', () => toast('앱 목록 (데모)'));
+    $('#micBtn').addEventListener('click', () => toast('음성 검색 (데모)'));
+    $('#aiBtn').addEventListener('click', () => toast('AI 검색 (데모)'));
+    $('#pencilBtn').addEventListener('click', () => toast('페이지 사용자 지정 (데모)'));
+    $('#settingsBtn').addEventListener('click', () => toast('설정 (데모)'));
+    $('#loginBtn').addEventListener('click', () => toast('로그인 페이지는 데모입니다'));
+    $$('.ghost-btn').forEach(b => b.addEventListener('click', () => toast('설정 창 (데모)')));
+
+    // 피드 추가 / 해제
+    $$('.feed-add').forEach(btn => {
+      btn.innerHTML = ICONS.plus;
+      btn.addEventListener('click', () => {
+        const added = btn.classList.toggle('added');
+        btn.innerHTML = added ? ICONS.check : ICONS.plus;
+        toast(added ? `${btn.dataset.name} 피드를 추가했어요` : `${btn.dataset.name} 피드를 해제했어요`);
+      });
+    });
+
+    // 날씨 탭
+    $('#wtabs').addEventListener('click', e => {
+      const tab = e.target.closest('.wtab');
+      if (!tab) return;
+      $$('.wtab').forEach(t => t.classList.toggle('active', t === tab));
+      $('#hourlyPanel').classList.toggle('hidden', tab.dataset.panel !== 'hourly');
+      $('#dailyPanel').classList.toggle('hidden', tab.dataset.panel !== 'daily');
+    });
+
+    // 페이지네이션
+    $$('.dots').forEach(dots => dots.addEventListener('click', e => {
+      const d = e.target.closest('i');
+      if (!d) return;
+      $$('i', dots).forEach(x => x.classList.toggle('on', x === d));
+    }));
+
+    // 좋아요 토글
+    $$('.act-like').forEach(btn => btn.addEventListener('click', () => {
+      const liked = btn.classList.toggle('on');
+      const count = btn.querySelector('.count');
+      if (count) {
+        const base = parseInt(count.dataset.base, 10) || 0;
+        count.textContent = (base + (liked ? 1 : 0)).toLocaleString('ko-KR');
+      }
+    }));
+
+    // 스포츠 새로고침 애니메이션
+    $('#sportsRefresh').addEventListener('click', () => {
+      const ic = $('#sportsRefresh svg');
+      ic.style.transition = 'transform .6s ease';
+      ic.style.transform = 'rotate(360deg)';
+      setTimeout(() => { ic.style.transition = ''; ic.style.transform = ''; }, 650);
+      toast('경기 정보를 새로고침했어요 (데모)');
+    });
+    $('#sportsMore').addEventListener('click', () => toast('Rogaland 더보기 (데모)'));
+
+    // 댓글/공유/기타 액션
+    $$('.act:not(.act-like)').forEach(b => b.addEventListener('click', () => toast('댓글/공유 (데모)')));
+    $$('.more-btn:not(#sportsMore)').forEach(b => b.addEventListener('click', () => toast('더보기 메뉴 (데모)')));
+
+    // 스파크라인 차트
+    function spark(pts, w, h, color) {
+      const min = Math.min.apply(null, pts);
+      const max = Math.max.apply(null, pts);
+      const range = (max - min) || 1;
+      const step = w / (pts.length - 1);
+      const coords = pts.map((p, i) => [i * step, h - 3 - ((p - min) / range) * (h - 6)]);
+      const line = coords.map(c => c.map(n => n.toFixed(1)).join(',')).join(' ');
+      const area = 'M0,' + h + ' ' + coords.map(c => 'L' + c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ') + ' L' + w + ',' + h + ' Z';
+      return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+        '<path d="' + area + '" fill="' + color + '" opacity="0.12"/>' +
+        '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>';
+    }
+    $$('[data-spark]').forEach(el => {
+      const pts = el.dataset.spark.split(',').map(Number);
+      el.innerHTML = spark(pts, 84, 26, '#16a34a');
+    });
+  </script>
+</body>
+</html>
