@@ -3,96 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>자동 배포된다</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic',
-        'Apple SD Gothic Neo', sans-serif;
-      background:
-        radial-gradient(900px 500px at 15% -10%, rgba(45, 120, 255, .28), transparent 60%),
-        radial-gradient(800px 480px at 110% 115%, rgba(124, 77, 255, .22), transparent 55%),
-        #0b1020;
-      color: #fff;
-      overflow: hidden;
-    }
-
-    /* 배경에 아주 은은하게 떠다니는 빛 점 */
-    body::before,
-    body::after {
-      content: '';
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(90px);
-      opacity: .35;
-      animation: drift 14s ease-in-out infinite alternate;
-      z-index: 0;
-    }
-    body::before {
-      width: 320px; height: 320px;
-      left: -80px; top: 15%;
-      background: #2b6cff;
-    }
-    body::after {
-      width: 260px; height: 260px;
-      right: -60px; bottom: 10%;
-      background: #8a4bff;
-      animation-delay: -7s;
-    }
-    @keyframes drift {
-      from { transform: translate(0, 0) scale(1); }
-      to   { transform: translate(50px, -35px) scale(1.15); }
-    }
-
-    main {
-      position: relative;
-      z-index: 1;
-      padding: 32px;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: clamp(2.4rem, 8vw, 5rem);
-      font-weight: 800;
-      letter-spacing: -.02em;
-      line-height: 1.15;
-      background: linear-gradient(120deg, #ffffff 20%, #9cc2ff 55%, #c9b2ff 85%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: transparent;
-      animation: fadeUp .9s cubic-bezier(.2, .7, .2, 1) both;
-      text-shadow: 0 10px 40px rgba(60, 120, 255, .25);
-    }
-
-    /* 밑줄이 살짝 그려지는 느낌 */
-    .underline {
-      width: 64px;
-      height: 4px;
-      margin: 22px auto 0;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #2b6cff, #8a4bff);
-      animation: grow .8s .3s cubic-bezier(.2, .7, .2, 1) both;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(16px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes grow {
-      from { opacity: 0; transform: scaleX(0); }
-      to   { opacity: 1; transform: scaleX(1); }
-    }
-  </style>
+  <title>우리들의 방명록</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <main>
-    <h1>자동 배포된다</h1>
-    <div class="underline"></div>
+  <div id="setup-warning" class="alert error" style="display:none; max-width:720px; margin:24px auto 0; position:relative; z-index:1;"></div>
+
+  <main class="wrap">
+    <!-- 상단 바 -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>우리들의 방명록</span>
+      </div>
+      <div id="user-box" class="user-box" style="display:none;">
+        <span>👤 <b id="user-name"></b></span>
+        <button class="mini-btn" id="logout-btn" type="button">로그아웃</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <h1>한 줄 남기고 가세요 ✍️</h1>
+      <p class="subtitle">로그인 후 글을 남길 수 있어요. 모두가 볼 수 있는 열린 방명록입니다.</p>
+
+      <!-- 글 작성 폼 (로그인 시에만 표시) -->
+      <form id="write-form" style="display:none;">
+        <div class="field">
+          <label for="content">메시지</label>
+          <textarea id="content" class="textarea" maxlength="1000"
+            placeholder="자유롭게 한 줄을 남겨보세요…"></textarea>
+          <div class="char-count"><span id="count">0</span> / 1000</div>
+        </div>
+        <button type="submit" class="btn primary block" id="submit-btn">남기기</button>
+      </form>
+
+      <!-- 로그인 유도 (비로그인 시에만 표시) -->
+      <div id="login-cta" class="alert info" style="display:none;">
+        글을 남기려면 로그인이 필요해요.
+        <a class="btn primary" href="login.html" style="margin-top:12px;">로그인 / 회원가입 →</a>
+      </div>
+    </section>
+
+    <!-- 메시지 목록 -->
+    <section id="list-section" aria-live="polite">
+      <div id="loader" class="loader">
+        <div class="spinner"></div>
+        불러오는 중…
+      </div>
+      <div id="list" class="list"></div>
+    </section>
+
+    <footer class="footer">
+      Supabase DB · Vercel Hosting · <span id="foot-count"></span>
+    </footer>
   </main>
+
+  <div id="toasts" class="toast-wrap"></div>
+
+  <!-- 스크립트 로드 순서: supabase CDN → 설정 → 클라이언트 → 앱 로직 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
