@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>중부권광역우편물류센터 · 차량 관제 모니터링</title>
+  <link rel="stylesheet" href="css/truck.css" />
+</head>
+<body>
+  <!-- ===================== 헤더 ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div class="brand-text">
+        <b>중부권광역우편물류센터</b>
+        <span class="brand-sub">차량 관제 모니터링</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="src-badge" title="아직 실제 데이터가 없어 시뮬레이션으로 차량 현황을 생성합니다. 연동 방법은 js/truck.js 상단 주석 참고">데이터 소스 : 시뮬레이션</span>
+      <div class="live-chip"><span class="live-dot"></span><span id="clock">--:--:--</span></div>
+    </div>
+  </header>
+
+  <!-- ===================== 도구 모음 ===================== -->
+  <nav class="toolbar" aria-label="모니터링 컨트롤">
+    <div class="ctrl-group">
+      <button id="play-btn" class="icon-btn" type="button" title="재생 / 일시정지" aria-label="재생 또는 일시정지">⏸</button>
+      <div class="seg" id="speed-seg" role="group" aria-label="시뮬레이션 속도"></div>
+      <button id="burst-btn" class="btn warn" type="button" title="진입 차량이 갑자기 몰리는 상황 연출">🔥 진입 폭주 연출</button>
+      <button id="reset-btn" class="btn" type="button">↺ 초기화</button>
+    </div>
+    <div class="chips">
+      <span id="burst-chip" class="chip danger" hidden>🚨 진입 폭주 중</span>
+      <span id="full-chip" class="chip danger" hidden>만차 — 진입 통제</span>
+    </div>
+  </nav>
+
+  <!-- ===================== 통계 ===================== -->
+  <section class="stats" id="stats" aria-label="실시간 통계">
+    <div class="stat accent-blue">
+      <div class="lbl">현재 차량</div>
+      <div class="num" id="st-total">0</div>
+      <div class="sub">완료 누적 <b id="st-done">0</b>대</div>
+    </div>
+    <div class="stat accent-violet">
+      <div class="lbl">대기 차량</div>
+      <div class="num" id="st-queue">0</div>
+      <div class="sub">좌측 <b id="st-q1">0</b> · 하단 <b id="st-q2">0</b> · 우측 <b id="st-q3">0</b> · 상단 <b id="st-q4">0</b></div>
+    </div>
+    <div class="stat accent-amber">
+      <div class="lbl">상·하차 중</div>
+      <div class="num" id="st-dock">0</div>
+      <div class="sub">도크 가동률 <b id="st-dockrate">0</b>%</div>
+    </div>
+    <div class="stat accent-green">
+      <div class="lbl">평균 대기</div>
+      <div class="num" id="st-avg">--</div>
+      <div class="sub">대기 중 차량 기준</div>
+    </div>
+    <div class="stat accent-red">
+      <div class="lbl">최대 대기</div>
+      <div class="num" id="st-max">--</div>
+      <div class="sub">현재 대기 중 기준</div>
+    </div>
+    <div class="stat accent-cyan">
+      <div class="lbl">시간당 처리</div>
+      <div class="num" id="st-tph">0</div>
+      <div class="sub">현재 속도 기준</div>
+    </div>
+  </section>
+
+  <!-- ===================== 본문 ===================== -->
+  <main class="layout">
+    <!-- 지도 -->
+    <section class="map-card">
+      <div class="map-head">
+        <h2 class="panel-title">차량 대기 현황 지도</h2>
+        <div class="legend">
+          <span class="lg"><i class="swatch t-cargo"></i>카고</span>
+          <span class="lg"><i class="swatch t-wing"></i>윙바디</span>
+          <span class="lg"><i class="swatch t-trailer"></i>트레일러</span>
+          <span class="lg"><i class="swatch t-reefer"></i>냉동</span>
+          <span class="lg"><i class="dot-state queue"></i>대기</span>
+          <span class="lg"><i class="dot-state dock"></i>상·하차</span>
+          <span class="lg"><i class="dot-state depart"></i>출발</span>
+          <span class="lg"><i class="swatch lane-drive"></i>주행도로</span>
+          <span class="lg"><i class="swatch lane-wait"></i>대기차선</span>
+        </div>
+      </div>
+
+      <div class="map-scroll">
+        <div id="map" class="map" role="img" aria-label="물류센터 4면 도로 개략도 — 건물 주변 각 면에 주행도로와 대기 2차선이 분리되어 있고, 좌상단 입차 → 좌측부터 순환(좌→하단→우측→상단)하며 대기, 각 면 도크에서 하역 후 좌상단으로 출차">
+          <svg class="map-bg" viewBox="0 0 1200 780" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <defs>
+              <!-- 텍스처(노이즈) 필터 -->
+              <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3" result="n" />
+                <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.6 0.6 0.6 0.15 0" />
+              </filter>
+              <filter id="blur6" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="6" />
+              </filter>
+
+              <!-- 그라데이션 -->
+              <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3d4530" />
+                <stop offset="0.55" stop-color="#333a28" />
+                <stop offset="1" stop-color="#2a2f21" />
+              </linearGradient>
+              <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3aa4f5" />
+                <stop offset="1" stop-color="#1e6ccb" />
+              </linearGradient>
+              <linearGradient id="roofSheen" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffffff" stop-opacity="0.20" />
+                <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.02" />
+                <stop offset="1" stop-color="#0b2c4e" stop-opacity="0.22" />
+              </linearGradient>
+              <linearGradient id="apronGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#4c5466" />
+                <stop offset="1" stop-color="#41495a" />
+              </linearGradient>
+              <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#2f3849" />
+                <stop offset="1" stop-color="#252d3d" />
+              </linearGradient>
+              <linearGradient id="laneGrad1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#36404f" />
+                <stop offset="1" stop-color="#2b3342" />
+              </linearGradient>
+              <linearGradient id="laneGrad2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#2d3542" />
+                <stop offset="1" stop-color="#242b38" />
+              </linearGradient>
+              <linearGradient id="parkGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#333c4d" />
+                <stop offset="1" stop-color="#2a3242" />
+              </linearGradient>
+              <radialGradient id="vignette" cx="0.5" cy="0.42" r="0.8">
+                <stop offset="0.55" stop-color="#000000" stop-opacity="0" />
+                <stop offset="1" stop-color="#04060d" stop-opacity="0.45" />
+              </radialGradient>
+              <radialGradient id="treeGrad" cx="0.35" cy="0.3" r="1">
+                <stop offset="0" stop-color="#58914b" />
+                <stop offset="0.7" stop-color="#3c7036" />
+                <stop offset="1" stop-color="#2b5527" />
+              </radialGradient>
+
+              <!-- 패턴: 지붕 주름 / 주차 구획 -->
+              <pattern id="corr" width="16" height="16" patternUnits="userSpaceOnUse">
+                <rect width="8" height="16" fill="#ffffff" opacity="0.05" />
+              </pattern>
+              <pattern id="stall" width="34" height="26" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="0" y2="26" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2.5" />
+              </pattern>
+
+              <!-- 주차된 승용차 / 화물차 심볼 -->
+              <symbol id="car" viewBox="0 0 26 14">
+                <rect x="2" y="3" width="24" height="12" rx="3.5" fill="#000000" opacity="0.28" />
+                <rect x="0" y="0" width="24" height="11" rx="3.5" fill="currentColor" />
+                <rect x="6" y="2" width="11" height="6" rx="2" fill="rgba(22,32,52,0.75)" />
+              </symbol>
+              <symbol id="parkedTruck" viewBox="0 0 60 22">
+                <rect x="2" y="4" width="58" height="18" rx="2" fill="#000000" opacity="0.3" />
+                <rect x="0" y="0" width="44" height="15" rx="2" fill="#dfe6ef" stroke="#8b96a6" />
+                <rect x="46" y="0" width="14" height="15" rx="2" fill="#aeb9c8" stroke="#8b96a6" />
+              </symbol>
+            </defs>
+
+            <!-- ══════ 대지 ══════ -->
+            <rect x="0" y="0" width="1200" height="780" fill="url(#groundGrad)" />
+            <rect x="0" y="0" width="1200" height="780" fill="#0a0e18" filter="url(#grain)" opacity="0.8" />
+            <ellipse cx="600" cy="120" rx="180" ry="20" fill="#241f14" opacity="0.25" />
+            <ellipse cx="1100" cy="650" rx="130" ry="16" fill="#241f14" opacity="0.25" />
+
+            <!-- 수목 (링 도로 바깥 외곽) -->
+            <g>
+              <circle cx="130" cy="312" r="22" fill="#000" opacity="0.3" /><circle cx="122" cy="301" r="18" fill="url(#treeGrad)" /><circle cx="132" cy="307" r="14" fill="url(#treeGrad)" />
+              <circle cx="196" cy="272" r="18" fill="#000" opacity="0.3" /><circle cx="188" cy="261" r="15" fill="url(#treeGrad)" />
+              <circle cx="162" cy="488" r="24" fill="#000" opacity="0.3" /><circle cx="154" cy="477" r="20" fill="url(#treeGrad)" /><circle cx="164" cy="483" r="15" fill="url(#treeGrad)" />
+              <circle cx="238" cy="438" r="17" fill="#000" opacity="0.3" /><circle cx="230" cy="427" r="14" fill="url(#treeGrad)" />
+              <circle cx="100" cy="568" r="20" fill="#000" opacity="0.3" /><circle cx="92" cy="557" r="16" fill="url(#treeGrad)" />
+              <circle cx="980" cy="256" r="22" fill="#000" opacity="0.3" /><circle cx="972" cy="245" r="18" fill="url(#treeGrad)" /><circle cx="982" cy="251" r="14" fill="url(#treeGrad)" />
+              <circle cx="1062" cy="322" r="19" fill="#000" opacity="0.3" /><circle cx="1054" cy="311" r="15" fill="url(#treeGrad)" />
+              <circle cx="1024" cy="478" r="23" fill="#000" opacity="0.3" /><circle cx="1016" cy="467" r="19" fill="url(#treeGrad)" /><circle cx="1026" cy="473" r="14" fill="url(#treeGrad)" />
+              <circle cx="1110" cy="404" r="18" fill="#000" opacity="0.3" /><circle cx="1102" cy="393" r="14" fill="url(#treeGrad)" />
+              <circle cx="966" cy="556" r="20" fill="#000" opacity="0.3" /><circle cx="958" cy="545" r="16" fill="url(#treeGrad)" />
+              <circle cx="488" cy="92" r="19" fill="#000" opacity="0.3" /><circle cx="480" cy="81" r="15" fill="url(#treeGrad)" />
+              <circle cx="628" cy="80" r="21" fill="#000" opacity="0.3" /><circle cx="620" cy="69" r="17" fill="url(#treeGrad)" /><circle cx="630" cy="75" r="13" fill="url(#treeGrad)" />
+              <circle cx="786" cy="100" r="18" fill="#000" opacity="0.3" /><circle cx="778" cy="89" r="14" fill="url(#treeGrad)" />
+              <circle cx="982" cy="82" r="20" fill="#000" opacity="0.3" /><circle cx="974" cy="71" r="16" fill="url(#treeGrad)" />
+              <circle cx="110" cy="768" r="20" fill="#000" opacity="0.3" /><circle cx="102" cy="757" r="16" fill="url(#treeGrad)" />
+              <circle cx="1104" cy="770" r="22" fill="#000" opacity="0.3" /><circle cx="1096" cy="759" r="18" fill="url(#treeGrad)" /><circle cx="1106" cy="765" r="13" fill="url(#treeGrad)" />
+            </g>
+            <!-- 관목 -->
+            <g fill="url(#treeGrad)">
+              <circle cx="230" cy="250" r="9" /><circle cx="270" cy="470" r="10" /><circle cx="950" cy="240" r="10" />
+              <circle cx="1040" cy="540" r="9" /><circle cx="520" cy="48" r="8" /><circle cx="720" cy="50" r="9" />
+              <circle cx="900" cy="66" r="8" /><circle cx="420" cy="762" r="9" /><circle cx="700" cy="764" r="8" />
+              <circle cx="900" cy="762" r="10" />
+            </g>
+
+            <!-- ══════ 작업장(에이프런): 건물 주변 ══════ -->
+            <rect x="388" y="238" width="424" height="304" fill="url(#apronGrad)" />
+            <rect x="388" y="238" width="424" height="304" fill="#0a0e18" filter="url(#grain)" opacity="0.6" />
+            <g stroke="#33394a" opacity="0.7">
+              <line x1="388" y1="300" x2="812" y2="300" /><line x1="388" y1="360" x2="812" y2="360" />
+              <line x1="388" y1="420" x2="812" y2="420" /><line x1="388" y1="480" x2="812" y2="480" /><line x1="388" y1="520" x2="812" y2="520" />
+              <line x1="440" y1="238" x2="440" y2="542" /><line x1="500" y1="238" x2="500" y2="542" />
+              <line x1="560" y1="238" x2="560" y2="542" /><line x1="620" y1="238" x2="620" y2="542" />
+              <line x1="680" y1="238" x2="680" y2="542" /><line x1="740" y1="238" x2="740" y2="542" />
+              <line x1="800" y1="238" x2="800" y2="542" />
+            </g>
+
+            <!-- 건물 투영 그림자 -->
+            <polygon points="430,500 810,500 850,540 480,540" fill="#000000" opacity="0.30" filter="url(#blur6)" />
+            <rect x="410" y="497" width="380" height="6" fill="#000000" opacity="0.35" />
+
+            <!-- ══════ 건물 (소형) ══════ -->
+            <rect x="410" y="275" width="380" height="220" rx="6" fill="url(#roofGrad)" />
+            <rect x="410" y="275" width="380" height="220" fill="url(#corr)" />
+            <rect x="410" y="275" width="380" height="220" fill="url(#roofSheen)" />
+            <g stroke="#0d3a66" stroke-opacity="0.35" stroke-width="2">
+              <line x1="460" y1="280" x2="460" y2="490" /><line x1="510" y1="280" x2="510" y2="490" />
+              <line x1="560" y1="280" x2="560" y2="490" /><line x1="610" y1="280" x2="610" y2="490" />
+              <line x1="660" y1="280" x2="660" y2="490" /><line x1="710" y1="280" x2="710" y2="490" />
+              <line x1="760" y1="280" x2="760" y2="490" />
+            </g>
+            <!-- 지붕 용마루 -->
+            <rect x="410" y="378" width="380" height="12" fill="#ffffff" opacity="0.14" />
+            <rect x="410" y="390" width="380" height="3" fill="#0b2c4e" opacity="0.4" />
+            <!-- 옥상 공조기 -->
+            <g>
+              <rect x="452" y="290" width="42" height="24" rx="3" fill="#c9d4e0" stroke="#93a0b2" stroke-width="2" />
+              <rect x="455" y="293" width="36" height="18" rx="2" fill="#dde6ef" />
+              <circle cx="473" cy="302" r="5" fill="#a9b6c6" stroke="#8896a8" stroke-width="1.5" />
+              <path d="M473,298 v8 M469,302 h8" stroke="#7f8d9f" stroke-width="1.5" />
+              <rect x="706" y="290" width="42" height="24" rx="3" fill="#c9d4e0" stroke="#93a0b2" stroke-width="2" />
+              <rect x="709" y="293" width="36" height="18" rx="2" fill="#dde6ef" />
+              <circle cx="727" cy="302" r="5" fill="#a9b6c6" stroke="#8896a8" stroke-width="1.5" />
+              <path d="M727,298 v8 M723,302 h8" stroke="#7f8d9f" stroke-width="1.5" />
+            </g>
+            <!-- 스카이라이트 -->
+            <g fill="rgba(214,236,255,0.5)" stroke="rgba(255,255,255,0.65)" stroke-width="1.5">
+              <rect x="470" y="342" width="50" height="12" rx="2" /><rect x="545" y="342" width="50" height="12" rx="2" />
+              <rect x="620" y="342" width="50" height="12" rx="2" /><rect x="695" y="342" width="50" height="12" rx="2" />
+            </g>
+            <!-- 옥상 표지판 -->
+            <text x="602" y="312" text-anchor="middle" fill="#0d3a66" opacity="0.35" font-size="17" font-weight="700" font-family="Malgun Gothic, sans-serif">우정사업본부</text>
+            <text x="600" y="310" text-anchor="middle" fill="#ffffff" opacity="0.85" font-size="17" font-weight="700" font-family="Malgun Gothic, sans-serif">우정사업본부</text>
+            <text x="602" y="336" text-anchor="middle" fill="#0d3a66" opacity="0.35" font-size="24" font-weight="800" font-family="Malgun Gothic, sans-serif">중부권광역우편물류센터</text>
+            <text x="600" y="334" text-anchor="middle" fill="#ffffff" font-size="24" font-weight="800" font-family="Malgun Gothic, sans-serif">중부권광역우편물류센터</text>
+            <!-- 위치 핀 -->
+            <g transform="translate(600, 420)">
+              <path d="M0,-26 C -14,-26 -23,-16 -23,-7 C -23,8 0,23 0,23 C 0,23 23,8 23,-7 C 23,-16 14,-26 0,-26 Z" fill="#ff3b52" />
+              <circle cx="0" cy="-7" r="10" fill="#ffffff" />
+              <text x="0" y="-2" text-anchor="middle" fill="#ff3b52" font-size="14" font-weight="800" font-family="Malgun Gothic, sans-serif">우</text>
+            </g>
+            <!-- 지붕 외곽 -->
+            <rect x="410" y="275" width="380" height="220" rx="6" fill="none" stroke="#0d3a66" stroke-width="4" />
+            <path d="M415,281 L785,281" stroke="#ffffff" stroke-opacity="0.5" stroke-width="1.5" />
+
+            <!-- ══════ 도크 6개 (하단 좌측 2 · 오른쪽 중앙 2 · 상단 좌측 2) ══════ -->
+            <!-- 하단 도크 문 (건물 하단 왼쪽 1/10) -->
+            <rect x="412" y="487" width="24" height="16" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <rect x="440" y="487" width="24" height="16" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <!-- 오른쪽 도크 문 (오른쪽 정중앙) -->
+            <rect x="774" y="343" width="16" height="24" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <rect x="774" y="403" width="16" height="24" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <!-- 상단 도크 문 (건물 상단 왼쪽 1/10) -->
+            <rect x="412" y="259" width="24" height="16" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <rect x="440" y="259" width="24" height="16" rx="2" fill="#0b2c4e" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" />
+            <!-- 하역장 레벨러 -->
+            <g fill="#39465a">
+              <rect x="414" y="503" width="20" height="6" rx="2" /><rect x="442" y="503" width="20" height="6" rx="2" />
+              <rect x="782" y="345" width="6" height="20" rx="2" /><rect x="782" y="405" width="6" height="20" rx="2" />
+              <rect x="414" y="251" width="20" height="6" rx="2" /><rect x="442" y="251" width="20" height="6" rx="2" />
+            </g>
+            <!-- 도크 번호 (벽면 도색) -->
+            <g text-anchor="middle" fill="#e6eefc" font-size="15" font-weight="800" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#0d3a66" stroke-width="3" stroke-linejoin="round">
+              <text x="424" y="480">1</text><text x="452" y="480">2</text>
+              <text x="768" y="358">3</text><text x="768" y="418">4</text>
+              <text x="424" y="297">5</text><text x="452" y="297">6</text>
+            </g>
+            <!-- 접안 유도 점선 -->
+            <g stroke="#f4d35e" stroke-opacity="0.55" stroke-width="2.5" stroke-dasharray="4 6">
+              <line x1="424" y1="511" x2="424" y2="540" /><line x1="452" y1="511" x2="452" y2="540" />
+              <line x1="794" y1="355" x2="815" y2="355" /><line x1="794" y1="415" x2="815" y2="415" />
+              <line x1="424" y1="247" x2="424" y2="230" /><line x1="452" y1="247" x2="452" y2="230" />
+            </g>
+
+            <!-- ══════ 4면 도로: 주행도로(건물 쪽) + 대기 1·2차선 ══════ -->
+            <!-- 대기 2차선 (바깥 링) -->
+            <g fill="url(#laneGrad2)">
+              <rect x="298" y="144" width="604" height="24" />
+              <rect x="298" y="144" width="24" height="488" />
+              <rect x="298" y="608" width="604" height="24" />
+              <rect x="878" y="144" width="24" height="488" />
+            </g>
+            <!-- 대기 1차선 (중간 링) -->
+            <g fill="url(#laneGrad1)">
+              <rect x="326" y="172" width="576" height="24" />
+              <rect x="326" y="172" width="24" height="436" />
+              <rect x="326" y="580" width="576" height="24" />
+              <rect x="850" y="172" width="24" height="436" />
+            </g>
+            <!-- 주행도로 (건물 쪽 내측 링) -->
+            <g fill="url(#roadGrad)">
+              <rect x="130" y="200" width="772" height="24" />
+              <rect x="354" y="144" width="24" height="488" />
+              <rect x="354" y="552" width="548" height="24" />
+              <rect x="822" y="144" width="24" height="488" />
+            </g>
+            <rect x="130" y="144" width="772" height="488" fill="#0a0e18" filter="url(#grain)" opacity="0.75" />
+            <!-- 차선 경계선 -->
+            <g stroke="#ffffff" stroke-opacity="0.32" stroke-width="2">
+              <line x1="130" y1="144" x2="902" y2="144" /><line x1="130" y1="168" x2="902" y2="168" />
+              <line x1="130" y1="196" x2="902" y2="196" /><line x1="130" y1="224" x2="902" y2="224" />
+              <line x1="298" y1="144" x2="298" y2="632" /><line x1="322" y1="144" x2="322" y2="632" />
+              <line x1="350" y1="144" x2="350" y2="632" /><line x1="378" y1="144" x2="378" y2="632" />
+              <line x1="298" y1="552" x2="902" y2="552" /><line x1="298" y1="580" x2="902" y2="580" />
+              <line x1="298" y1="608" x2="902" y2="608" /><line x1="298" y1="632" x2="902" y2="632" />
+              <line x1="822" y1="144" x2="822" y2="632" /><line x1="850" y1="144" x2="850" y2="632" />
+              <line x1="878" y1="144" x2="878" y2="632" /><line x1="902" y1="144" x2="902" y2="632" />
+            </g>
+            <!-- 주행도로 중심선 (점선) -->
+            <g stroke="#f4d35e" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="14 12">
+              <line x1="150" y1="212" x2="888" y2="212" />
+              <line x1="366" y1="150" x2="366" y2="625" />
+              <line x1="366" y1="564" x2="888" y2="564" />
+              <line x1="834" y1="150" x2="834" y2="625" />
+            </g>
+            <!-- 진행 방향 화살표 (일방통행 반시계: 좌↓ → 하→ → 우↑ → 상←) -->
+            <g fill="#ffffff" opacity="0.3">
+              <!-- 상단: 서쪽 (←) -->
+              <path d="M450,212 l-22,-6 22,-6 z" /><path d="M600,212 l-22,-6 22,-6 z" /><path d="M760,212 l-22,-6 22,-6 z" />
+              <!-- 좌측: 남쪽 -->
+              <path d="M366,300 l6,22 -6,22 z" /><path d="M366,430 l6,22 -6,22 z" /><path d="M366,550 l6,22 -6,22 z" />
+              <!-- 하단: 동쪽 -->
+              <path d="M470,564 l22,-6 -22,-6 z" /><path d="M620,564 l22,-6 -22,-6 z" /><path d="M770,564 l22,-6 -22,-6 z" />
+              <!-- 우측: 북쪽 -->
+              <path d="M834,300 l-6,-22 6,-22 z" /><path d="M834,410 l-6,-22 6,-22 z" /><path d="M834,530 l-6,-22 6,-22 z" />
+              <!-- 상단 서쪽: 출차 -->
+              <path d="M280,212 l-22,6 22,6 z" />
+            </g>
+            <!-- 진입 우회전 안내 (좌상단) -->
+            <path d="M340,205 l24,0 m-7,-7 l7,7 -7,7" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="3" />
+            <!-- 맨홀 -->
+            <g fill="#1b2230" stroke="#3d4a5e" stroke-width="2">
+              <circle cx="560" cy="212" r="6" /><circle cx="366" cy="360" r="6" /><circle cx="560" cy="564" r="6" /><circle cx="834" cy="360" r="6" />
+            </g>
+
+            <!-- ══════ 좌상단 게이트 (입차 / 출차) ══════ -->
+            <g>
+              <rect x="292" y="228" width="34" height="30" rx="5" fill="#000000" opacity="0.25" />
+              <rect x="288" y="224" width="34" height="30" rx="5" fill="#e8edf4" stroke="#9aa5b5" stroke-width="2" />
+              <rect x="294" y="230" width="12" height="9" rx="1.5" fill="#2b3a52" />
+              <!-- 입차 차단기 -->
+              <rect x="330" y="208" width="86" height="8" rx="4" fill="#f4f6f9" stroke="#b9c2cf" />
+              <rect x="330" y="208" width="15" height="8" fill="#e0405a" /><rect x="360" y="208" width="15" height="8" fill="#e0405a" /><rect x="390" y="208" width="15" height="8" fill="#e0405a" />
+              <!-- 출차 차단기 -->
+              <rect x="570" y="208" width="86" height="8" rx="4" fill="#f4f6f9" stroke="#b9c2cf" />
+              <rect x="570" y="208" width="15" height="8" fill="#e0405a" /><rect x="600" y="208" width="15" height="8" fill="#e0405a" /><rect x="630" y="208" width="15" height="8" fill="#e0405a" />
+              <!-- 표지판 -->
+              <rect x="150" y="58" width="118" height="38" rx="8" fill="#1e8a5a" />
+              <text x="209" y="84" text-anchor="middle" fill="#ffffff" font-size="19" font-weight="800" font-family="Malgun Gothic, sans-serif">입차 ▸</text>
+              <rect x="562" y="58" width="118" height="38" rx="8" fill="#b03a48" />
+              <text x="621" y="84" text-anchor="middle" fill="#ffffff" font-size="19" font-weight="800" font-family="Malgun Gothic, sans-serif">◂ 출차</text>
+            </g>
+
+            <!-- 차선 라벨 -->
+            <!-- 상단 -->
+            <text x="700" y="218" text-anchor="middle" fill="#d5ddf2" font-size="15" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">주행도로</text>
+            <text x="560" y="190" text-anchor="middle" fill="#9fb4d8" font-size="14" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">대기 1차선</text>
+            <text x="440" y="162" text-anchor="middle" fill="#8fa2c4" font-size="14" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">대기 2차선</text>
+            <!-- 하단 -->
+            <text x="700" y="570" text-anchor="middle" fill="#d5ddf2" font-size="15" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">주행도로</text>
+            <text x="560" y="596" text-anchor="middle" fill="#9fb4d8" font-size="14" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">대기 1차선</text>
+            <text x="440" y="624" text-anchor="middle" fill="#8fa2c4" font-size="14" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round">대기 2차선</text>
+            <!-- 좌측 -->
+            <text x="366" y="330" text-anchor="middle" fill="#d5ddf2" font-size="14" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round" transform="rotate(90,366,330)">주행도로</text>
+            <text x="338" y="370" text-anchor="middle" fill="#9fb4d8" font-size="13" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round" transform="rotate(90,338,370)">대기 1차선</text>
+            <text x="310" y="410" text-anchor="middle" fill="#8fa2c4" font-size="13" font-weight="700" font-family="Malgun Gothic, sans-serif" paint-order="stroke" stroke="#10131f" stroke-width="4" stroke-linejoin="round" transform="rotate(90,310,410)">대기 2차선</text>
+
+            <!-- ══════ 하단 주차장 ══════ -->
+            <rect x="0" y="665" width="1200" height="5" fill="#2e3525" />
+            <rect x="40" y="670" width="1120" height="78" fill="url(#parkGrad)" />
+            <rect x="40" y="670" width="1120" height="78" fill="#0a0e18" filter="url(#grain)" opacity="0.7" />
+            <rect x="40" y="670" width="1120" height="78" fill="none" stroke="#cfd8f0" stroke-opacity="0.35" stroke-width="3" />
+            <rect x="130" y="676" width="748" height="26" fill="url(#stall)" />
+            <rect x="130" y="718" width="748" height="26" fill="url(#stall)" />
+            <g stroke="#ffffff" stroke-opacity="0.55" stroke-width="2.5">
+              <line x1="130" y1="676" x2="878" y2="676" /><line x1="130" y1="702" x2="878" y2="702" />
+              <line x1="130" y1="718" x2="878" y2="718" /><line x1="130" y1="744" x2="878" y2="744" />
+            </g>
+            <path d="M430,706 l18,10 -18,10 z" fill="#ffffff" opacity="0.35" />
+            <g>
+              <use href="#car" x="168" y="689" style="color:#e0654f" /><use href="#car" x="236" y="689" style="color:#5f8fe0" />
+              <use href="#car" x="304" y="689" style="color:#e0b64f" /><use href="#car" x="372" y="689" style="color:#5fd08f" />
+              <use href="#car" x="440" y="689" style="color:#a06fe0" /><use href="#car" x="508" y="689" style="color:#d8d8e0" />
+              <use href="#car" x="576" y="689" style="color:#4fc4e0" /><use href="#car" x="644" y="689" style="color:#e08fc0" />
+              <use href="#car" x="712" y="689" style="color:#5f8fe0" /><use href="#car" x="780" y="689" style="color:#e0654f" />
+              <use href="#car" x="848" y="689" style="color:#d8d8e0" />
+              <use href="#car" x="134" y="731" style="color:#5fd08f" /><use href="#car" x="202" y="731" style="color:#e0b64f" />
+              <use href="#car" x="270" y="731" style="color:#e08fc0" /><use href="#car" x="338" y="731" style="color:#5f8fe0" />
+              <use href="#car" x="406" y="731" style="color:#d8d8e0" /><use href="#car" x="474" y="731" style="color:#e0654f" />
+              <use href="#car" x="542" y="731" style="color:#4fc4e0" /><use href="#car" x="610" y="731" style="color:#a06fe0" />
+              <use href="#car" x="678" y="731" style="color:#e0b64f" /><use href="#car" x="746" y="731" style="color:#5fd08f" />
+              <use href="#car" x="814" y="731" style="color:#e0654f" />
+            </g>
+            <g>
+              <use href="#parkedTruck" x="960" y="682" /><use href="#parkedTruck" x="1060" y="682" />
+              <use href="#parkedTruck" x="960" y="722" /><use href="#parkedTruck" x="1060" y="722" /><use href="#parkedTruck" x="1140" y="722" />
+            </g>
+
+            <!-- ══════ 하단 잔디 + 나침반 + 안내 ══════ -->
+            <rect x="0" y="748" width="1200" height="32" fill="#2a3021" />
+            <g transform="translate(1128, 26)">
+              <circle r="17" fill="#f2f5fa" opacity="0.92" />
+              <circle r="17" fill="none" stroke="#b9c4d6" stroke-width="2" />
+              <path d="M0,-13 L4,5 L0,2 L-4,5 Z" fill="#e0405a" />
+              <text y="13" text-anchor="middle" fill="#31405c" font-size="9" font-weight="800" font-family="sans-serif">N</text>
+            </g>
+            <text x="40" y="770" fill="#7d8aa8" font-size="16" font-family="Malgun Gothic, sans-serif">※ 개략도 (실측 아님) — 4면 주행·대기 분리 · 일방통행 반시계(좌→하→우→상) · 좌상단 입차 → 각 면 대기열 → 도크 상·하차 → 좌상단 출차</text>
+            <rect x="0" y="0" width="1200" height="780" fill="url(#vignette)" />
+          </svg>
+
+          <!-- 차량 레이어 (JS로 생성) -->
+          <div id="trucks" class="trucks-layer"></div>
+          <!-- 도크 상태 레이어 (JS로 생성) -->
+          <div id="docks" class="docks-layer"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 사이드 패널 -->
+    <aside class="side">
+      <section class="panel">
+        <h2 class="panel-title">도크 현황</h2>
+        <div id="dock-list" class="dock-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">차량 목록</h2>
+        <div class="tbl-scroll">
+          <table class="tbl" id="truck-table">
+            <thead>
+              <tr>
+                <th>차량</th>
+                <th>구분</th>
+                <th>상태</th>
+                <th class="ta-r">대기</th>
+              </tr>
+            </thead>
+            <tbody id="truck-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">이벤트 로그</h2>
+        <div id="log" class="log" aria-live="polite"></div>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    현재 <b>시뮬레이션 모드</b>입니다 — 실제 GPS·CCTV·수동 입력 연동 시 <code>js/truck.js</code> 상단의 [데이터 소스] 주석을 참고하세요.
+  </footer>
+
+  <!-- 툴팁 / 상세 팝오버 -->
+  <div id="tip" class="tip" hidden></div>
+  <div id="pop" class="pop" hidden></div>
+
+  <script src="js/truck.js"></script>
+</body>
+</html>
