@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기존물량등록 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/loaded.css" />
+</head>
+<body>
+  <div id="setup-warning" class="alert error" style="display:none; max-width:480px; margin:16px auto 0;"></div>
+
+  <main class="std">
+    <!-- 상단 타이틀 -->
+    <header class="std-head">
+      <h1 class="std-title">기존물량등록</h1>
+      <span class="std-sub">날짜별 · 우체국별 차량 적재 물량 등록 (파렛 / 공파렛)</span>
+    </header>
+
+    <!-- 리스트 우측 상단: 우체국 리스트 최신 업로드 -->
+    <div class="toolbar">
+      <span class="toolbar-note">우체국 목록은 DB에서 불러오며, 최신 업로드 버튼으로 갱신할 수 있습니다.</span>
+      <button id="btn-office-upload" type="button" class="btn small">↻ 우체국 리스트 최신 업로드</button>
+    </div>
+
+    <!-- 수정 가능한 리스트 (화면의 약 90%) -->
+    <div class="std-body" role="region" aria-label="기존물량등록 목록">
+      <div class="std-grid std-grid-head" aria-hidden="true">
+        <span>번호</span>
+        <span>우체국명</span>
+        <span>날짜</span>
+        <span>파렛</span>
+        <span>공파렛</span>
+        <span>추가/삭제</span>
+      </div>
+      <div id="rows" class="std-rows"></div>
+    </div>
+
+    <!-- 우하단 버튼 3개 -->
+    <footer class="std-foot">
+      <span id="std-status" class="std-status" hidden></span>
+      <button id="btn-upload" type="button" class="btn" title="기준파일 업로드는 준비 중입니다">기준파일 업로드</button>
+      <button id="btn-save" type="button" class="btn primary">저장</button>
+      <button id="btn-close" type="button" class="btn">닫기</button>
+    </footer>
+  </main>
+
+  <!-- 우체국 리스트 업데이트 중 대기 화면 (아무 것도 못 하도록 차단) -->
+  <div id="wait" class="wait-backdrop" hidden>
+    <div class="wait-card">
+      <div class="spinner"></div>
+      <p>우체국 리스트 업데이트 중…</p>
+    </div>
+  </div>
+
+  <!-- 업데이트 완료 팝업 -->
+  <div id="popup" class="popup-backdrop" hidden>
+    <div class="popup">
+      <p id="popup-msg">업데이트가 완료 되었습니다.</p>
+      <button id="popup-ok" type="button" class="btn primary">확인</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <!-- 우체국명 원본 데이터 (node-navigation-data.js) — DB 동기화/폴백용 -->
+  <script src="js/node-navigation-data.js"></script>
+  <script src="js/loaded.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>노선별 네비게이션 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/node-navigation.css" />
+</head>
+<body>
+  <!-- ===================== 헤더 ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div class="brand-text">
+        <b>중부권광역우편물류센터</b>
+        <span class="brand-sub">노선별 네비게이션</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="cost-standard-btn" class="src-badge cost-btn" type="button" title="노선 비용 산정 기준을 열기">⚙ 비용산정기준</button>
+      <button id="loaded-btn" class="src-badge cost-btn" type="button" title="기존물량등록 화면을 열기">📦 기존물량등록</button>
+    </div>
+  </header>
+
+  <!-- ===================== 본문 : 좌 30% / 우 70% ===================== -->
+  <main class="layout">
+    <!-- 좌측 30% : 노선 목록 -->
+    <aside class="side" aria-label="노선 목록">
+      <div class="panel-head">
+        <h2 class="panel-title">노선 목록</h2>
+        <span id="route-count" class="pill">0개</span>
+      </div>
+
+      <!-- 노선당 방문 수 조절 (최적 노선 수 탐색) -->
+      <div class="opt-row">
+        <span class="opt-lbl" title="노선당 방문 우체국 수를 바꾸면 최적 노선 개수가 재계산됩니다">노선당 방문</span>
+        <div id="stops-seg" class="seg" role="group" aria-label="노선당 방문 우체국 수"></div>
+      </div>
+
+      <!-- 노선 카드 목록 (JS로 생성) -->
+      <div id="route-list" class="route-list"></div>
+
+      <div class="side-foot">노선을 클릭하면 지도에 경로가 표시됩니다 · 맨 처음 노선이 기본 선택</div>
+    </aside>
+
+    <!-- 우측 70% : 지도 -->
+    <section class="map-col" aria-label="노선 경로 지도">
+      <div class="map-head">
+        <h2 class="panel-title">노선 경로 지도</h2>
+        <div id="legend" class="legend"></div>
+      </div>
+
+      <div id="map" class="map">
+        <!-- 네이버 지도 키 없음 / 로드 실패 안내 (JS로 생성) -->
+        <div id="map-empty" class="map-empty" hidden></div>
+        <!-- 상태 표시줄 (지도 로드 / 좌표 보정) -->
+        <div id="map-status" class="map-status" hidden></div>
+      </div>
+
+      <!-- 현재 선택 노선 요약 -->
+      <div id="now-route" class="now-route"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    좌측에서 노선을 선택하면 우측 지도에 실제 도로 경로가 표시됩니다 ·
+    노선 최적화: Clarke-Wright + 2-opt · 거리는 실제 도로 주행 거리(OSRM, 키 불필요) 기준
+    (<code>js/node-navigation-data.js</code> 에서 우체국 목록·제약 조건·지도 종류 수정 가능)
+  </footer>
+
+  <!-- 비용산정기준 오버레이 (standard.html 을 중앙 80% 크기로 표시) -->
+  <div id="standard-overlay" class="standard-overlay" hidden>
+    <div class="standard-frame">
+      <!-- src 는 첫 열림 때 동적으로 지정 (지연 로드) -->
+      <iframe id="standard-frame" data-src="standard.html" title="비용산정기준"></iframe>
+    </div>
+  </div>
+
+  <!-- 기존물량등록 오버레이 (loaded.html 을 중앙 80% 크기로 표시) -->
+  <div id="loaded-overlay" class="standard-overlay" hidden>
+    <div class="standard-frame">
+      <iframe id="loaded-frame" data-src="loaded.html" title="기존물량등록"></iframe>
+    </div>
+  </div>
+
+  <!-- 스크립트 로드 순서: 데이터(설정) → 앱 로직 -->
+  <script src="js/node-navigation-data.js"></script>
+  <script src="js/node-navigation.js"></script>
+</body>
+</html>

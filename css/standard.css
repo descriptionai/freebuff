@@ -1,0 +1,292 @@
+/* ============================================================
+   비용산정기준 (standard.html)
+   node-navigation.html 오버레이 안의 iframe 으로 표시됨.
+   다크 글래스모피즘 — 노선 네비게이션 디자인 언어 계승
+   ============================================================ */
+:root {
+  --bg: #0b1020;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #eef2ff;
+  --dim: #9aa5c4;
+  --accent-1: #2b6cff;
+  --accent-2: #8a4bff;
+  --accent-grad: linear-gradient(120deg, #2b6cff, #8a4bff);
+  --success: #34d399;
+  --danger: #ff5d73;
+  font-size: 15px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic',
+    'Apple SD Gothic Neo', sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(720px 420px at 12% -12%, rgba(45, 120, 255, 0.24), transparent 60%),
+    radial-gradient(640px 400px at 108% 112%, rgba(124, 77, 255, 0.2), transparent 55%),
+    var(--bg);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ===================== 레이아웃: 헤더 / 리스트(90%) / 하단 버튼 ===================== */
+.std {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 18px 22px 0;
+}
+
+.std-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 2px 4px 12px;
+}
+.std-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.std-sub { font-size: 0.78rem; color: var(--dim); }
+
+/* 리스트 영역 — 화면의 약 90% */
+.std-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+  padding: 14px 14px 18px;
+}
+
+/* 6개 컬럼 그리드 */
+.std-grid {
+  display: grid;
+  grid-template-columns: 64px 1fr 1fr 1.1fr 1.35fr 118px;
+  gap: 10px;
+  align-items: center;
+}
+
+.std-grid-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  background: rgba(11, 16, 32, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+
+.std-rows { display: flex; flex-direction: column; gap: 8px; }
+
+.std-row {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  animation: rowIn 0.22s ease both;
+}
+.std-row:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.055);
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.std-row .num {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--dim);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 입력 컨트롤 */
+.in {
+  width: 100%;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 11px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.in:focus {
+  outline: none;
+  border-color: var(--accent-1);
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow: 0 0 0 3px rgba(43, 108, 255, 0.22);
+}
+.in::placeholder { color: rgba(154, 165, 196, 0.55); }
+
+select.in {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 30px;
+}
+
+input.in.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 거리/비용 숫자 입력의 위·아래 스피너 화살표 제거 (기능 포함) */
+input.in.num[type='number']::-webkit-outer-spin-button,
+input.in.num[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.in.num[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 추가/삭제 버튼 */
+.act {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+}
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.icon-btn:hover { transform: translateY(-1px); }
+.icon-btn.add {
+  color: #bcd6ff;
+  border-color: rgba(43, 108, 255, 0.4);
+  background: rgba(43, 108, 255, 0.14);
+}
+.icon-btn.add:hover {
+  background: rgba(43, 108, 255, 0.28);
+  box-shadow: 0 0 0 3px rgba(43, 108, 255, 0.16);
+}
+.icon-btn.del {
+  color: #ffc2cc;
+  border-color: rgba(255, 93, 115, 0.4);
+  background: rgba(255, 93, 115, 0.12);
+}
+.icon-btn.del:hover {
+  background: rgba(255, 93, 115, 0.24);
+  box-shadow: 0 0 0 3px rgba(255, 93, 115, 0.14);
+}
+
+/* ===================== 하단 버튼 (우하단) ===================== */
+.std-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 4px 18px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.86rem;
+  padding: 11px 20px;
+  border-radius: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.btn:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.3); }
+.btn:disabled { opacity: 0.55; cursor: wait; transform: none; }
+.btn.primary {
+  background: var(--accent-grad);
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(70, 100, 255, 0.35);
+}
+.btn.primary:hover { box-shadow: 0 10px 30px rgba(70, 100, 255, 0.5); }
+
+/* 저장/오류 상태 메시지 */
+.std-status {
+  margin-right: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #7ee8c2;
+}
+.std-status.err {
+  background: rgba(255, 93, 115, 0.12);
+  border-color: rgba(255, 93, 115, 0.4);
+  color: #ffb3c0;
+}
+.std-status[hidden] { display: none; }
+
+/* 설정 오류 배너 */
+.alert.error {
+  background: rgba(255, 93, 115, 0.14);
+  border: 1px solid rgba(255, 93, 115, 0.45);
+  color: #ffb3c0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.84rem;
+}
+
+/* ===================== 스크롤바 ===================== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+
+/* ===================== 반응형 ===================== */
+@media (max-width: 860px) {
+  :root { font-size: 14px; }
+  .std { padding: 12px 12px 0; }
+  .std-grid { grid-template-columns: 44px 1fr 1fr 1.1fr 1.3fr 92px; gap: 7px; }
+  .std-grid-head { font-size: 0.7rem; }
+  .btn { padding: 10px 14px; }
+}

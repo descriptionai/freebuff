@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>비용산정기준 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/standard.css" />
+</head>
+<body>
+  <div id="setup-warning" class="alert error" style="display:none; max-width:480px; margin:16px auto 0;"></div>
+
+  <main class="std">
+    <!-- 상단 타이틀 -->
+    <header class="std-head">
+      <h1 class="std-title">비용산정기준</h1>
+      <span class="std-sub">노선 비용 산정 기준 · 차량구분 / 톤수 / 거리별 운임</span>
+    </header>
+
+    <!-- 수정 가능한 기준 리스트 (화면의 약 90%) -->
+    <div class="std-body" role="region" aria-label="비용산정기준 목록">
+      <div class="std-grid std-grid-head" aria-hidden="true">
+        <span>번호</span>
+        <span>차량구분</span>
+        <span>톤수</span>
+        <span>거리(km)</span>
+        <span>비용(원)</span>
+        <span>추가/삭제</span>
+      </div>
+      <div id="rows" class="std-rows"></div>
+    </div>
+
+    <!-- 우하단 버튼 3개 -->
+    <footer class="std-foot">
+      <span id="std-status" class="std-status" hidden></span>
+      <button id="btn-upload" type="button" class="btn" title="기준파일 업로드는 준비 중입니다">기준파일 업로드</button>
+      <button id="btn-save" type="button" class="btn primary">저장</button>
+      <button id="btn-close" type="button" class="btn">닫기</button>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/standard.js"></script>
+</body>
+</html>
