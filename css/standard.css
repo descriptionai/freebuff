@@ -79,10 +79,10 @@ body {
   padding: 14px 14px 18px;
 }
 
-/* 6개 컬럼 그리드 */
+/* 7개 컬럼 그리드 (추가/삭제 · 이동 분리) */
 .std-grid {
   display: grid;
-  grid-template-columns: 64px 1fr 1fr 1.1fr 1.35fr 132px;
+  grid-template-columns: 64px 1fr 1fr 1.1fr 1.35fr 110px 58px;
   gap: 10px;
   align-items: center;
 }
@@ -318,7 +318,7 @@ input.in.num[type='number'] {
 @media (max-width: 860px) {
   :root { font-size: 14px; }
   .std { padding: 12px 12px 0; }
-  .std-grid { grid-template-columns: 44px 1fr 1fr 1.1fr 1.3fr 116px; gap: 7px; }
+  .std-grid { grid-template-columns: 44px 1fr 1fr 1.1fr 1.3fr 94px 48px; gap: 7px; }
   .std-grid-head { font-size: 0.7rem; }
   .btn { padding: 10px 14px; }
 }

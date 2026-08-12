@@ -90,10 +90,10 @@ body {
   padding: 14px 14px 18px;
 }
 
-/* 6개 컬럼 그리드 */
+/* 7개 컬럼 그리드 (추가/삭제 · 이동 분리) */
 .std-grid {
   display: grid;
-  grid-template-columns: 56px 1.5fr 1.1fr 0.8fr 0.8fr 126px;
+  grid-template-columns: 56px 1.5fr 1.1fr 0.8fr 0.8fr 110px 58px;
   gap: 10px;
   align-items: center;
 }
@@ -523,7 +523,7 @@ input.in.date::-webkit-calendar-picker-indicator {
   :root { font-size: 14px; }
   .std { padding: 12px 12px 0; }
   .std-grid {
-    grid-template-columns: 42px 1.3fr 1fr 0.75fr 0.75fr 116px;
+    grid-template-columns: 42px 1.3fr 1fr 0.75fr 0.75fr 94px 48px;
     gap: 7px;
   }
   .std-grid-head { font-size: 0.7rem; }

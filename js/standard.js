@@ -75,12 +75,12 @@
       '<input class="in num distance" type="number" min="1" step="0.1" inputmode="decimal" placeholder="거리" value="' + esc(data.distance != null ? data.distance : '') + '" />' +
       '<input class="in num cost" type="text" inputmode="numeric" autocomplete="off" placeholder="비용" value="' + esc(fmtCost(data.cost)) + '" />' +
       '<span class="act">' +
-      '<span class="move">' +
-      '<button type="button" class="icon-btn up" title="위로 이동">▲</button>' +
-      '<button type="button" class="icon-btn down" title="아래로 이동">▼</button>' +
-      '</span>' +
       '<button type="button" class="icon-btn add" title="아래에 새 줄 추가">+</button>' +
       '<button type="button" class="icon-btn del" title="이 줄 삭제">-</button>' +
+      '</span>' +
+      '<span class="act move">' +
+      '<button type="button" class="icon-btn up" title="위로 이동">▲</button>' +
+      '<button type="button" class="icon-btn down" title="아래로 이동">▼</button>' +
       '</span>';
 
     // 비용 입력 중 3자리마다 쉼표 자동 표시 (커서 위치 유지)

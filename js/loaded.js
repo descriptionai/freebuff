@@ -195,12 +195,12 @@
       '<input class="in num pallet" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="' + (data.pallet == null ? 0 : data.pallet) + '" />' +
       '<input class="in num empty-pallet" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="' + (data.empty_pallet == null ? 0 : data.empty_pallet) + '" />' +
       '<span class="act">' +
-      '<span class="move">' +
-      '<button type="button" class="icon-btn up" title="위로 이동">▲</button>' +
-      '<button type="button" class="icon-btn down" title="아래로 이동">▼</button>' +
-      '</span>' +
       '<button type="button" class="icon-btn add" title="아래에 새 줄 추가">+</button>' +
       '<button type="button" class="icon-btn del" title="이 줄 삭제">-</button>' +
+      '</span>' +
+      '<span class="act move">' +
+      '<button type="button" class="icon-btn up" title="위로 이동">▲</button>' +
+      '<button type="button" class="icon-btn down" title="아래로 이동">▼</button>' +
       '</span>';
 
     // 날짜: 직접 타이핑은 차단하고 달력으로만 선택.
