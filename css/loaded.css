@@ -93,7 +93,7 @@ body {
 /* 6개 컬럼 그리드 */
 .std-grid {
   display: grid;
-  grid-template-columns: 56px 1.5fr 1.1fr 0.8fr 0.8fr 110px;
+  grid-template-columns: 56px 1.5fr 1.1fr 0.8fr 0.8fr 126px;
   gap: 10px;
   align-items: center;
 }
@@ -316,7 +316,7 @@ input.in.date::-webkit-calendar-picker-indicator {
 .cal-cell.empty { cursor: default; }
 
 /* 추가/삭제 버튼 */
-.act { display: flex; gap: 7px; justify-content: center; }
+.act { display: flex; gap: 7px; justify-content: center; align-items: center; }
 .icon-btn {
   width: 34px;
   height: 34px;
@@ -348,6 +348,37 @@ input.in.date::-webkit-calendar-picker-indicator {
 .icon-btn.del:hover {
   background: rgba(255, 93, 115, 0.24);
   box-shadow: 0 0 0 3px rgba(255, 93, 115, 0.14);
+}
+
+/* 순서 이동 화살표 (▲/▼) — 세로로 쌓아 표시 */
+.move {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.icon-btn.up,
+.icon-btn.down {
+  width: 26px;
+  height: 26px;
+  font-size: 0.6rem;
+  color: #bcd6ff;
+  border-color: rgba(43, 108, 255, 0.35);
+  background: rgba(43, 108, 255, 0.12);
+}
+.icon-btn.up:hover,
+.icon-btn.down:hover {
+  background: rgba(43, 108, 255, 0.26);
+  box-shadow: 0 0 0 3px rgba(43, 108, 255, 0.14);
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.icon-btn.up:disabled:hover,
+.icon-btn.down:disabled:hover {
+  background: rgba(43, 108, 255, 0.12);
 }
 
 /* ===================== 하단 버튼 (우하단) ===================== */
@@ -492,7 +523,7 @@ input.in.date::-webkit-calendar-picker-indicator {
   :root { font-size: 14px; }
   .std { padding: 12px 12px 0; }
   .std-grid {
-    grid-template-columns: 42px 1.3fr 1fr 0.75fr 0.75fr 92px;
+    grid-template-columns: 42px 1.3fr 1fr 0.75fr 0.75fr 116px;
     gap: 7px;
   }
   .std-grid-head { font-size: 0.7rem; }

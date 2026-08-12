@@ -195,6 +195,10 @@
       '<input class="in num pallet" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="' + (data.pallet == null ? 0 : data.pallet) + '" />' +
       '<input class="in num empty-pallet" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="' + (data.empty_pallet == null ? 0 : data.empty_pallet) + '" />' +
       '<span class="act">' +
+      '<span class="move">' +
+      '<button type="button" class="icon-btn up" title="위로 이동">▲</button>' +
+      '<button type="button" class="icon-btn down" title="아래로 이동">▼</button>' +
+      '</span>' +
       '<button type="button" class="icon-btn add" title="아래에 새 줄 추가">+</button>' +
       '<button type="button" class="icon-btn del" title="이 줄 삭제">-</button>' +
       '</span>';
@@ -247,14 +251,34 @@
       renumber();
     });
 
+    // "▲" → 위 행과 위치 교환 (맨 위면 동작 안 함)
+    div.querySelector('.up').addEventListener('click', function () {
+      if (div.previousElementSibling) {
+        rowsEl.insertBefore(div, div.previousElementSibling);
+        renumber();
+      }
+    });
+
+    // "▼" → 아래 행과 위치 교환 (맨 아래면 동작 안 함)
+    div.querySelector('.down').addEventListener('click', function () {
+      if (div.nextElementSibling) {
+        rowsEl.insertBefore(div.nextElementSibling, div);
+        renumber();
+      }
+    });
+
     return div;
   }
 
-  // 1, 2, 3 … 순서대로 번호 재부여
+  // 1, 2, 3 … 순서대로 번호 재부여 + 이동 버튼 활성/비활성 갱신
+  // (맨 위 행의 ▲ 와 맨 아래 행의 ▼ 는 비활성화)
   function renumber() {
-    Array.prototype.forEach.call(rowsEl.children, function (row, i) {
-      row.querySelector('.num').textContent = i + 1;
-    });
+    var rows = rowsEl.children;
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].querySelector('.num').textContent = i + 1;
+      rows[i].querySelector('.up').disabled = (i === 0);
+      rows[i].querySelector('.down').disabled = (i === rows.length - 1);
+    }
   }
 
   /* ---------------- DB 로드/저장 ---------------- */
