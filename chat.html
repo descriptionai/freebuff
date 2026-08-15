@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>질의/응답 채팅 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/chat.css" />
+</head>
+<body>
+  <div id="setup-warning" class="alert error" style="display:none; max-width:480px; margin:12px auto 0;"></div>
+
+  <main class="chat">
+    <!-- 상단: 타이틀 + 닫기 -->
+    <header class="chat-head">
+      <h1 class="chat-title">💬 질의/응답 채팅</h1>
+      <button id="btn-close" class="close-btn" type="button" title="닫기">✕</button>
+    </header>
+
+    <!-- 대화 내용 (90%) -->
+    <div id="msg-list" class="msg-list" aria-live="polite"></div>
+
+    <!-- 입력부 (10%): 대화명 20% / 내용 70% / 전송 10% -->
+    <footer class="chat-input">
+      <input id="inp-name" class="inp inp-name" type="text" maxlength="20" placeholder="대화명" autocomplete="off" />
+      <input id="inp-content" class="inp inp-content" type="text" maxlength="1000" placeholder="내용을 입력하세요…" autocomplete="off" />
+      <button id="btn-send" class="send-btn" type="button">전송</button>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- 스크립트 로드 순서: supabase CDN → 설정 → 클라이언트 → 채팅 로직 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/chat.js"></script>
+</body>
+</html>

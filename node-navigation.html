@@ -20,6 +20,8 @@
       <button id="cost-standard-btn" class="src-badge cost-btn" type="button" title="노선 비용 산정 기준을 열기">⚙ 비용산정기준</button>
       <button id="loaded-btn" class="src-badge cost-btn" type="button" title="기존물량등록 화면을 열기">📦 기존물량등록</button>
       <button id="data-btn" class="src-badge cost-btn" type="button" title="기준자료(단가표·적재수량·조사결과) 조회">📊 기준자료</button>
+      <button id="chat-btn" class="src-badge cost-btn" type="button" title="질의/응답 채팅 열기">💬 질의/응답</button>
+      <button id="files-btn" class="src-badge cost-btn" type="button" title="첨부파일 다운로드/업로드 화면 열기">📥 다운/로드</button>
     </div>
   </header>
 
@@ -88,6 +90,20 @@
   <div id="data-overlay" class="standard-overlay" hidden>
     <div class="standard-frame" style="width:min(1440px,94vw); height:min(92vh,1000px);">
       <iframe id="data-frame" data-src="data-viewer.html" title="기준자료 조회"></iframe>
+    </div>
+  </div>
+
+  <!-- 질의/응답 채팅 오버레이 (chat.html 을 화면 정중앙, 가로 2/5 × 세로 2/3 크기로 표시) -->
+  <div id="chat-overlay" class="standard-overlay" hidden>
+    <div class="standard-frame" style="width:40vw; height:calc(100vh * 2 / 3); min-width:340px; min-height:420px;">
+      <iframe id="chat-frame" data-src="chat.html" title="질의/응답 채팅"></iframe>
+    </div>
+  </div>
+
+  <!-- 다운/로드 오버레이 (files.html 을 chat 과 같은 크기로 표시) -->
+  <div id="files-overlay" class="standard-overlay" hidden>
+    <div class="standard-frame" style="width:40vw; height:calc(100vh * 2 / 3); min-width:340px; min-height:420px;">
+      <iframe id="files-frame" data-src="files.html" title="다운/로드"></iframe>
     </div>
   </div>
 

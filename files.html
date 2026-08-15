@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>다운/로드 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/files.css" />
+</head>
+<body>
+  <div id="setup-warning" class="alert error" style="display:none; max-width:480px; margin:12px auto 0;"></div>
+
+  <main class="files">
+    <!-- 상단: 타이틀 + 닫기 -->
+    <header class="files-head">
+      <h1 class="files-title">📥 다운/로드</h1>
+      <button id="btn-close" class="close-btn" type="button" title="닫기">✕</button>
+    </header>
+
+    <!-- 첨부파일 리스트 (80%) : 저장된 항목 — 제목 클릭 시 다운로드 팝업, 오른쪽 '-'로 삭제 -->
+    <div id="post-list" class="post-list" aria-live="polite"></div>
+
+    <!-- 하단 20% (제목 10% + 버튼 10%) — 파일을 끌어다 놓으면 첨부되는 영역 -->
+    <div id="bottom-zone" class="bottom-zone">
+      <div class="title-row">
+        <input id="inp-title" class="inp inp-title" type="text" maxlength="200" placeholder="제목을 입력하세요… (파일을 끌어다 놓으면 첨부됩니다)" autocomplete="off" />
+      </div>
+      <footer class="action-row">
+        <button id="btn-count" class="act act-count" type="button" title="업로드할 첨부파일 목록 보기">📎 0개</button>
+        <button id="btn-pick" class="act act-pick" type="button" title="업로드할 첨부파일 찾기">🔍 찾기</button>
+        <button id="btn-reset" class="act act-reset" type="button" title="업로드할 파일과 제목 삭제">♻️ 초기화</button>
+        <button id="btn-save" class="act act-save" type="button" title="제목과 첨부파일 저장">💾 저장</button>
+        <input id="file-input" type="file" multiple hidden />
+      </footer>
+    </div>
+  </main>
+
+  <!-- 확인/다운로드/업로드 목록 공용 팝업 -->
+  <div id="modal" class="modal" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- 스크립트 로드 순서: supabase CDN → 설정 → 클라이언트 → 로직 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/files.js"></script>
+</body>
+</html>

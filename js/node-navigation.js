@@ -1066,10 +1066,12 @@
     window.addEventListener('message', function (e) {
       if (e.data && e.data.type === 'close-cost-standard') closeStandard();
     });
-    // 편의: 열려 있는 동안 Esc 키로도 닫기 (둘 중 열린 쪽을 닫음)
+    // 편의: 열려 있는 동안 Esc 키로도 닫기 (열린 쪽을 닫음)
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
-      if (dataOverlayEl && !dataOverlayEl.hidden) closeData();
+      if (chatOverlayEl && !chatOverlayEl.hidden) closeChat();
+      else if (filesOverlayEl && !filesOverlayEl.hidden) closeFiles();
+      else if (dataOverlayEl && !dataOverlayEl.hidden) closeData();
       else if (loadedOverlayEl && !loadedOverlayEl.hidden) closeLoaded();
       else if (!overlayEl.hidden) closeStandard();
     });
@@ -1127,6 +1129,58 @@
     });
   }
 
+  /* ---------------- 질의/응답 채팅 오버레이 (chat.html iframe) ---------------- */
+  var chatOverlayEl = $('chat-overlay'), chatBtn = $('chat-btn');
+  var chatFrame = $('chat-frame');
+
+  function openChat() {
+    chatOverlayEl.hidden = false;
+    document.body.style.overflow = 'hidden';
+    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 대화 반영
+    if (!chatFrame.getAttribute('src')) {
+      chatFrame.src = chatFrame.getAttribute('data-src') || 'chat.html';
+    } else {
+      chatFrame.src = chatFrame.src;
+    }
+  }
+  function closeChat() {
+    chatOverlayEl.hidden = true;
+    document.body.style.overflow = '';
+  }
+  function bindChatModal() {
+    if (!chatOverlayEl || !chatBtn) return;
+    chatBtn.addEventListener('click', openChat);
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'close-chat') closeChat();
+    });
+  }
+
+  /* ---------------- 다운/로드 오버레이 (files.html iframe) ---------------- */
+  var filesOverlayEl = $('files-overlay'), filesBtn = $('files-btn');
+  var filesFrame = $('files-frame');
+
+  function openFiles() {
+    filesOverlayEl.hidden = false;
+    document.body.style.overflow = 'hidden';
+    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 데이터 반영
+    if (!filesFrame.getAttribute('src')) {
+      filesFrame.src = filesFrame.getAttribute('data-src') || 'files.html';
+    } else {
+      filesFrame.src = filesFrame.src;
+    }
+  }
+  function closeFiles() {
+    filesOverlayEl.hidden = true;
+    document.body.style.overflow = '';
+  }
+  function bindFilesModal() {
+    if (!filesOverlayEl || !filesBtn) return;
+    filesBtn.addEventListener('click', openFiles);
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'close-files') closeFiles();
+    });
+  }
+
   /* ---------------- 초기화 ---------------- */
   function init() {
     // 지도 배지 (있는 경우에만 표시)
@@ -1157,6 +1211,8 @@
     bindStandardModal();
     bindLoadedModal();
     bindDataModal();
+    bindChatModal();
+    bindFilesModal();
     reoptimize(); // 첫 노선 자동 선택 → 지도에도 첫 노선 경로 (근사 좌표 기준)
 
     mapApi.load(function () {

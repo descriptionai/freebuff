@@ -1,0 +1,209 @@
+/* ============================================================
+   질의/응답 채팅 (chat.html)
+   - 카카오톡 스타일: 내 글은 오른쪽(파란 그라데이션), 남의 글은 왼쪽
+   - 상단 90% 대화 내용 / 하단 10% 입력부 (대화명 20% · 내용 70% · 전송 10%)
+   - node-navigation.css 의 다크 글래스모피즘 디자인 언어 계승
+   ============================================================ */
+:root {
+  --bg: #0b1020;
+  --surface: rgba(255, 255, 255, 0.045);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #eef2ff;
+  --dim: #9aa5c4;
+  --accent-1: #2b6cff;
+  --accent-2: #8a4bff;
+  --accent-grad: linear-gradient(120deg, #2b6cff, #8a4bff);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic',
+    'Apple SD Gothic Neo', sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(500px 320px at 15% -10%, rgba(45, 120, 255, 0.22), transparent 60%),
+    radial-gradient(420px 300px at 110% 115%, rgba(124, 77, 255, 0.18), transparent 55%),
+    var(--bg);
+  overflow: hidden;
+}
+
+/* ===================== 레이아웃: 상단 90% / 하단 10% ===================== */
+.chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 상단 헤더 (타이틀 + 닫기) */
+.chat-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+.chat-title { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.01em; }
+.close-btn {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--dim);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.close-btn:hover { transform: scale(1.08); border-color: rgba(255, 255, 255, 0.35); color: var(--text); }
+
+/* 대화 내용 영역 (90%) */
+.msg-list {
+  flex: 9 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 12px;
+}
+
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--dim);
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+/* 입력부 (10%): 대화명 20% / 내용 70% / 전송 10% */
+.chat-input {
+  flex: 1 1 0;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+.inp {
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0 13px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.inp::placeholder { color: rgba(154, 165, 196, 0.6); }
+.inp:focus {
+  outline: none;
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 3px rgba(43, 108, 255, 0.22);
+}
+.inp-name { flex: 2; }   /* 20% */
+.inp-content { flex: 7; } /* 70% */
+.send-btn { flex: 1; }   /* 10% */
+.send-btn {
+  height: 40px;
+  border: none;
+  border-radius: 11px;
+  background: var(--accent-grad);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  padding: 0 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(70, 100, 255, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.send-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(70, 100, 255, 0.45); }
+.send-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ===================== 메시지 말풍선 (카카오톡 스타일) ===================== */
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+.msg-row.other { align-self: flex-start; align-items: flex-start; }
+.msg-row.mine  { align-self: flex-end;   align-items: flex-end; }
+
+.msg-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--dim);
+  margin: 0 4px 3px;
+}
+.msg-row.mine .msg-name { color: #8fb4ff; }
+
+.msg-wrap { display: flex; flex-direction: column; }
+.msg-row.other .msg-wrap { align-items: flex-start; }
+.msg-row.mine  .msg-wrap { align-items: flex-end; }
+
+.msg-bubble {
+  padding: 8px 13px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.msg-row.other .msg-bubble {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-left-radius: 4px;
+  color: var(--text);
+}
+.msg-row.mine .msg-bubble {
+  background: linear-gradient(120deg, #2b6cff, #8a4bff);
+  color: #fff;
+  border-top-right-radius: 4px;
+  box-shadow: 0 4px 14px rgba(70, 100, 255, 0.35);
+}
+
+.msg-time {
+  font-size: 0.62rem;
+  color: rgba(154, 165, 196, 0.75);
+  margin-top: 3px;
+  padding: 0 4px;
+}
+
+/* ===================== 토스트 (전송 오류 등) ===================== */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.toast[hidden] { display: none; }
+.toast.err { border-color: rgba(255, 93, 115, 0.6); color: #ffb3bf; }
+
+/* ===================== 스크롤바 ===================== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }

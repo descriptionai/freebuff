@@ -155,3 +155,123 @@ create policy "post_offices_all"
   for all
   using (true)
   with check (true);
+
+
+-- ============================================================
+-- 질의/응답 채팅(chats) 스키마
+-- 카카오톡 스타일 대화창 (chat.html) — 대화명 + 내용 저장, 실시간 반영
+-- ============================================================
+
+create table if not exists public.chats (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    text not null default '',                         -- 브라우저 고유 ID (내 글/남의 글 구분)
+  name       text not null,                                    -- 대화명 (표시용)
+  content    text not null check (char_length(content) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+-- 이미 만든 테이블이면 user_id 컬럼만 추가 (멱등)
+alter table public.chats add column if not exists user_id text not null default '';
+
+-- 시간순 정렬 조회가 잦으므로 인덱스 추가
+create index if not exists chats_created_at_idx
+  on public.chats (created_at asc);
+
+alter table public.chats enable row level security;
+
+-- 내부 도구로 사용하므로 읽기/쓰기를 모두 허용 (익명 포함).
+drop policy if exists "chats_all" on public.chats;
+create policy "chats_all"
+  on public.chats
+  for all
+  using (true)
+  with check (true);
+
+-- 실시간 구독: 새 메시지가 열려있는 다른 브라우저(채팅창)에 즉시 반영
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'chats'
+     ) then
+    alter publication supabase_realtime add table public.chats;
+  end if;
+end
+$$;
+
+
+-- ============================================================
+-- 다운/로드(file_posts · file_items) 스키마
+-- 제목 + 첨부파일 목록 저장 (files.html) — 파일 본문은 Supabase Storage
+-- (공개 버킷 file-attachments) 에 저장하고, 메타데이터만 DB 에 보관
+-- ============================================================
+
+create table if not exists public.file_posts (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null check (char_length(title) between 1 and 200),
+  file_count integer not null default 0,          -- 첨부파일 개수 (표시용)
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.file_items (
+  id           uuid primary key default gen_random_uuid(),
+  post_id      uuid not null references public.file_posts (id) on delete cascade,
+  file_name    text not null,                     -- 원본 파일명 (표시/다운로드명)
+  storage_path text not null,                     -- Storage 내 경로 (bucket: file-attachments)
+  size         bigint not null default 0,         -- 파일 크기(byte)
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists file_posts_created_idx
+  on public.file_posts (created_at desc);
+create index if not exists file_items_post_idx
+  on public.file_items (post_id);
+
+alter table public.file_posts enable row level security;
+alter table public.file_items enable row level security;
+
+-- 내부 도구로 사용하므로 읽기/쓰기를 모두 허용 (익명 포함).
+drop policy if exists "file_posts_all" on public.file_posts;
+create policy "file_posts_all"
+  on public.file_posts
+  for all
+  using (true)
+  with check (true);
+
+drop policy if exists "file_items_all" on public.file_items;
+create policy "file_items_all"
+  on public.file_items
+  for all
+  using (true)
+  with check (true);
+
+-- 첨부파일 저장용 Storage 버킷 (공개 읽기 → URL만으로 다운로드 가능)
+insert into storage.buckets (id, name, public)
+values ('file-attachments', 'file-attachments', true)
+on conflict (id) do update set public = true;
+
+-- 버킷 안 파일 업로드/삭제 허용 (익명 포함 — 내부 도구)
+drop policy if exists "file_attachments_all" on storage.objects;
+create policy "file_attachments_all"
+  on storage.objects
+  for all
+  using (bucket_id = 'file-attachments')
+  with check (bucket_id = 'file-attachments');
+
+-- 실시간 구독: 새 항목이 열려있는 다른 브라우저(다운/로드 창)에 즉시 반영
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'file_posts'
+     ) then
+    alter publication supabase_realtime add table public.file_posts;
+  end if;
+end
+$$;
