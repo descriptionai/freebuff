@@ -7,8 +7,9 @@
 //   결과가 마음에 안 들면 아래 데이터에서 lat/lng 를 직접 넣어도 됩니다.
 //
 // ★ 지도 프로바이더:
-//   mapProvider: "auto"  → 네이버 키 있으면 네이버, 없으면 무료 지도(Leaflet)
-//   naver.clientId 입력 시 네이버 지도로 표시됩니다 (선택).
+//   mapProvider: "kakao" → 카카오 지도 (아래 kakao.appkey 필수 — 카카오 JavaScript 키)
+//   "auto" → 카카오 키 있으면 카카오, 없으면 무료 지도(Leaflet)
+//   "naver" → 네이버 지도 (naver.clientId 입력)
 //
 // ★ 노선당 방문 우체국 수는 페이지 좌측 상단의 버튼으로 조절 가능합니다.
 // ============================================================
@@ -16,12 +17,18 @@
 window.NODE_NAV_CONFIG = {
 
   /* ---------- 지도 프로바이더 ---------- */
-  // 'auto'   : 네이버 키가 있으면 네이버 지도, 없으면 키 없는 무료 지도(Leaflet)로 자동 전환
+  // 'kakao'  : 카카오 지도로 고정 (아래 kakao.appkey 필수 — 카카오 JavaScript 키)
   // 'naver'  : 네이버 지도로 고정 (아래 naver.clientId 필수)
+  // 'auto'   : 카카오 키가 있으면 카카오 지도, 없으면 키 없는 무료 지도(Leaflet)로 자동 전환
   // 'leaflet': 무료 지도로 고정 (키 불필요 — 등록 없이 바로 동작)
-  mapProvider: "auto",
+  mapProvider: "kakao",
 
-  /* ---------- 네이버 지도 (선택, mapProvider 가 'naver' 또는 'auto' 일 때 사용) ---------- */
+  /* ---------- 카카오 지도 (mapProvider 가 'kakao' 또는 'auto' 일 때 사용) ---------- */
+  kakao: {
+    appkey: "d2137170360b040790e220f2f4db564d"  // ← 카카오 JavaScript API 키 (필수)
+  },
+
+  /* ---------- 네이버 지도 (선택, mapProvider 가 'naver' 일 때 사용) ---------- */
   naver: {
     clientId: "",   // ← 여기에 네이버 지도 Client ID 입력 (선택)
     subKey: ""      // ← (선택) Geocoding 서브 키 — 네이버 좌표 보정에 사용

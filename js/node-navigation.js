@@ -7,10 +7,9 @@
        · 맨 처음 노선이 기본 선택 — 지도에도 첫 노선 경로가 표시됨
        · 선택 시 카드 테두리가 해당 노선 대표색으로 강조
    - 우측(70%): 선택 노선의 경로를 대표색으로 표시.
-       · 지도 프로바이더: 네이버 지도 / 무료 Leaflet(OSM·CARTO 타일)
-         - 기본 'auto': 네이버 키가 있으면 네이버, 없으면 키 없이
-           바로 동작하는 무료 지도(Leaflet)로 자동 전환
-         - js/node-navigation-data.js 의 mapProvider 로 고정 가능
+       · 지도 프로바이더: 카카오 지도 / 네이버 지도 / 무료 Leaflet(OSM·CARTO 타일)
+         - 기본 'kakao': 카카오 JavaScript 키로 카카오 지도 표시
+         - 'naver' / 'leaflet' 으로도 고정 가능 (js/node-navigation-data.js 의 mapProvider)
    - 노선명 규칙: "중부권" + 출발 우체국명(우체국 제외) + "수집1-N"
    - 최적화: Clarke-Wright 절약법 + 2-opt 경유 순서 개선
      (제약: 노선당 방문 수 ≤ maxStopsPerRoute, 거리 ≤ maxKmPerRoute
@@ -29,6 +28,8 @@
   /* ---------------- 설정 ---------------- */
   var CFG = window.NODE_NAV_CONFIG || {};
   var NAVER_CFG = CFG.naver || {};
+  var KAKAO_CFG = CFG.kakao || {};
+  var KAKAO_APPKEY = KAKAO_CFG.appkey || '';
   var DEPOT = CFG.depot || { name: '중부권광역우편물류센터', addr: '', lat: 36.2706944, lng: 127.4733805 };
   var OFFICES = CFG.postOffices || [];
   var MAX_STOPS = CFG.maxStopsPerRoute || 8;
@@ -459,9 +460,10 @@
 
   /* ============================================================
      지도 프로바이더 추상화
+     - 'kakao'  : 카카오 지도 (appkey 필요)
      - 'naver'  : 네이버 지도 (Client ID 필요)
      - 'leaflet': 무료 지도 (키 불필요, OSM/CARTO 타일)
-     mapProvider 가 'auto' 이면 키 유무에 따라 자동 선택
+     mapProvider 가 'auto' 이면 카카오 → 네이버 → 무료 순으로 자동 선택
      ============================================================ */
   function effectiveClientId() {
     try { return localStorage.getItem(LS_KEY) || NAVER_CFG.clientId || ''; }
@@ -469,8 +471,10 @@
   }
 
   function pickProvider() {
+    if (PROVIDER === 'kakao') return 'kakao';
     if (PROVIDER === 'naver') return 'naver';
     if (PROVIDER === 'leaflet') return 'leaflet';
+    if (KAKAO_APPKEY) return 'kakao';
     return effectiveClientId() ? 'naver' : 'leaflet';
   }
 
@@ -543,14 +547,34 @@
     // 좌표 객체 → 해당 지도 API 포맷
     latLng: function (o) {
       var p = pointOf(o);
-      return this.name === 'naver'
-        ? new naver.maps.LatLng(p.lat, p.lng)
-        : [p.lat, p.lng];
+      if (this.name === 'naver') return new naver.maps.LatLng(p.lat, p.lng);
+      if (this.name === 'kakao') return new kakao.maps.LatLng(p.lat, p.lng);
+      return [p.lat, p.lng];
     },
 
     load: function (cb) {
       var self = this;
       if (self.name === 'leaflet') { loadLeaflet(cb); return; }
+      if (self.name === 'kakao') {
+        if (window.kakao && window.kakao.maps) { cb(); return; }
+        if (!KAKAO_APPKEY) {
+          statusText('카카오 지도 appkey가 설정되지 않았습니다 — js/node-navigation-data.js 의 kakao.appkey 를 확인해주세요.');
+          return;
+        }
+        var ksrc = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(KAKAO_APPKEY) + '&autoload=false';
+        var ks = document.createElement('script');
+        ks.async = true;
+        ks.src = ksrc;
+        ks.onload = function () {
+          if (window.kakao && window.kakao.maps) { kakao.maps.load(cb); return; }
+          statusText('카카오 지도 스크립트 로드 실패 — appkey와 허용 도메인 설정을 확인해주세요.');
+        };
+        ks.onerror = function () {
+          statusText('카카오 지도 스크립트를 불러오지 못했습니다 — appkey를 확인해주세요.');
+        };
+        document.head.appendChild(ks);
+        return;
+      }
       if (window.naver && window.naver.maps) { cb(); return; }
       var cid = effectiveClientId();
       if (!cid) { showNoKey(); return; }
@@ -580,6 +604,17 @@
         });
         setTimeout(function () { self.map.invalidateSize(); }, 120);
         statusText('무료 지도(Leaflet + OSM/CARTO) 로드 완료');
+      } else if (self.name === 'kakao') {
+        self.map = new kakao.maps.Map(mapEl, {
+          center: new kakao.maps.LatLng(DEPOT.lat, DEPOT.lng),
+          level: 9,
+          minLevel: 1,
+          maxLevel: 14
+        });
+        kakao.maps.event.addListener(self.map, 'click', function () {
+          if (self.infoWin) { self.infoWin.close(); self.infoWin = null; }
+        });
+        statusText('카카오 지도 로드 완료');
       } else {
         self.map = new naver.maps.Map(mapEl, {
           center: new naver.maps.LatLng(DEPOT.lat, DEPOT.lng),
@@ -598,14 +633,14 @@
     clear: function () {
       var self = this, i;
       for (i = 0; i < self.overlays.length; i++) {
-        if (self.name === 'naver') self.overlays[i].setMap(null);
-        else self.overlays[i].remove();
+        if (self.name === 'leaflet') self.overlays[i].remove();
+        else self.overlays[i].setMap(null);
       }
       self.overlays = [];
       self.clearLines();
       if (self.infoWin) {
-        if (self.name === 'naver') self.infoWin.close();
-        else self.map.closePopup();
+        if (self.name === 'leaflet') self.map.closePopup();
+        else self.infoWin.close();
         self.infoWin = null;
       }
     },
@@ -621,6 +656,14 @@
           strokeWeight: 6,
           strokeOpacity: 0.95
         });
+      } else if (self.name === 'kakao') {
+        line = new kakao.maps.Polyline({
+          map: self.map,
+          path: path,
+          strokeWeight: 6,
+          strokeColor: color,
+          strokeOpacity: 0.95
+        });
       } else {
         line = L.polyline(path, {
           color: color,
@@ -634,8 +677,8 @@
     clearLines: function () {
       var self = this, i;
       for (i = 0; i < self.lineOverlays.length; i++) {
-        if (self.name === 'naver') self.lineOverlays[i].setMap(null);
-        else self.lineOverlays[i].remove();
+        if (self.name === 'leaflet') self.lineOverlays[i].remove();
+        else self.lineOverlays[i].setMap(null);
       }
       self.lineOverlays = [];
     },
@@ -671,6 +714,18 @@
         if (opts.onClick) {
           naver.maps.Event.addListener(m, 'click', function () { opts.onClick(m); });
         }
+      } else if (self.name === 'kakao') {
+        // 커스텀 오버레이: 콘텐츠 DOM 요소를 직접 사용 (기본 xAnchor/yAnchor 0.5 → 좌표에 중앙 정렬)
+        m = new kakao.maps.CustomOverlay({
+          map: self.map,
+          position: self.latLng(o),
+          content: el,
+          zIndex: opts.zIndex || 0,
+          clickable: !!opts.onClick
+        });
+        if (opts.onClick) {
+          el.addEventListener('click', function () { opts.onClick(m); });
+        }
       } else {
         m = L.marker(self.latLng(o), {
           icon: L.divIcon({
@@ -699,6 +754,11 @@
           content: html
         });
         self.infoWin.open(self.map, marker);
+      } else if (self.name === 'kakao') {
+        if (self.infoWin) self.infoWin.close();
+        self.infoWin = new kakao.maps.InfoWindow({ content: html, zIndex: 210 });
+        var pos = typeof marker.getPosition === 'function' ? marker.getPosition() : self.latLng(marker.office || marker);
+        self.infoWin.open(self.map, pos);
       } else {
         self.map.closePopup();
         self.infoWin = L.popup({ closeButton: false })
@@ -714,6 +774,10 @@
         var b = new naver.maps.LatLngBounds();
         points.forEach(function (p) { b.extend(p); });
         self.map.fitBounds(b, 90, 90, 90, 90);
+      } else if (self.name === 'kakao') {
+        var kb = new kakao.maps.LatLngBounds();
+        points.forEach(function (p) { kb.extend(p); });
+        self.map.setBounds(kb, 90, 90, 90, 90);
       } else {
         self.map.fitBounds(points, { padding: [50, 50] });
       }
@@ -787,7 +851,9 @@
         var cur = routes[selectedId];
         if (!geo || !cur || routeGeoSig(cur) !== geoKey) return;
         var pts = geo.map(function (c) {
-          return mapApi.name === 'naver' ? new naver.maps.LatLng(c[1], c[0]) : [c[1], c[0]];
+          if (mapApi.name === 'naver') return new naver.maps.LatLng(c[1], c[0]);
+          if (mapApi.name === 'kakao') return new kakao.maps.LatLng(c[1], c[0]);
+          return [c[1], c[0]];
         });
         mapApi.clearLines();
         mapApi.addPolyline(pts, r.lineColor);
@@ -1012,10 +1078,13 @@
   function init() {
     // 지도 배지 (있는 경우에만 표시)
     if (badgeEl) {
-      badgeEl.textContent = mapApi.name === 'naver' ? '지도 : 네이버 지도' : '지도 : 무료 (키 불필요)';
-      badgeEl.title = mapApi.name === 'naver'
-        ? '네이버 지도 JavaScript API v3'
-        : '무료 지도 (Leaflet + OpenStreetMap/CARTO 타일) — 키 없이 사용 가능';
+      var badgeMap = {
+        kakao: { text: '지도 : 카카오 지도', title: '카카오 지도 JavaScript API' },
+        naver: { text: '지도 : 네이버 지도', title: '네이버 지도 JavaScript API v3' }
+      };
+      var bd = badgeMap[mapApi.name] || { text: '지도 : 무료 (키 불필요)', title: '무료 지도 (Leaflet + OpenStreetMap/CARTO 타일) — 키 없이 사용 가능' };
+      badgeEl.textContent = bd.text;
+      badgeEl.title = bd.title;
     }
 
     if (!OFFICES.length) {
