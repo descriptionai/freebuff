@@ -7,8 +7,8 @@
 //   결과가 마음에 안 들면 아래 데이터에서 lat/lng 를 직접 넣어도 됩니다.
 //
 // ★ 지도 프로바이더:
-//   mapProvider: "kakao" → 카카오 지도 (아래 kakao.appkey 필수 — 카카오 JavaScript 키)
-//   "auto" → 카카오 키 있으면 카카오, 없으면 무료 지도(Leaflet)
+//   mapProvider: "leaflet" → 무료 지도(Leaflet, 키 불필요) — 현재 사용 중
+//   "kakao" → 카카오 지도 (아래 kakao.appkey 필수 — 카카오 JavaScript 키 + 지도 서비스 활성화 필요)
 //   "naver" → 네이버 지도 (naver.clientId 입력)
 //
 // ★ 노선당 방문 우체국 수는 페이지 좌측 상단의 버튼으로 조절 가능합니다.
@@ -21,7 +21,7 @@ window.NODE_NAV_CONFIG = {
   // 'naver'  : 네이버 지도로 고정 (아래 naver.clientId 필수)
   // 'auto'   : 카카오 키가 있으면 카카오 지도, 없으면 키 없는 무료 지도(Leaflet)로 자동 전환
   // 'leaflet': 무료 지도로 고정 (키 불필요 — 등록 없이 바로 동작)
-  mapProvider: "kakao",
+  mapProvider: "leaflet",   // ← 무료 지도(Leaflet) 사용 — 키 불필요
 
   /* ---------- 카카오 지도 (mapProvider 가 'kakao' 또는 'auto' 일 때 사용) ---------- */
   kakao: {
