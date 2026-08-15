@@ -1069,7 +1069,8 @@
     // 편의: 열려 있는 동안 Esc 키로도 닫기 (둘 중 열린 쪽을 닫음)
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
-      if (loadedOverlayEl && !loadedOverlayEl.hidden) closeLoaded();
+      if (dataOverlayEl && !dataOverlayEl.hidden) closeData();
+      else if (loadedOverlayEl && !loadedOverlayEl.hidden) closeLoaded();
       else if (!overlayEl.hidden) closeStandard();
     });
   }
@@ -1097,6 +1098,32 @@
     loadedBtn.addEventListener('click', openLoaded);
     window.addEventListener('message', function (e) {
       if (e.data && e.data.type === 'close-loaded') closeLoaded();
+    });
+  }
+
+  /* ---------------- 기준자료 조회 오버레이 (data-viewer.html iframe) ---------------- */
+  var dataOverlayEl = $('data-overlay'), dataBtn = $('data-btn');
+  var dataFrame = $('data-frame');
+
+  function openData() {
+    dataOverlayEl.hidden = false;
+    document.body.style.overflow = 'hidden';
+    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 데이터 반영
+    if (!dataFrame.getAttribute('src')) {
+      dataFrame.src = dataFrame.getAttribute('data-src') || 'data-viewer.html';
+    } else {
+      dataFrame.src = dataFrame.src;
+    }
+  }
+  function closeData() {
+    dataOverlayEl.hidden = true;
+    document.body.style.overflow = '';
+  }
+  function bindDataModal() {
+    if (!dataOverlayEl || !dataBtn) return;
+    dataBtn.addEventListener('click', openData);
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'close-data-viewer') closeData();
     });
   }
 
@@ -1129,6 +1156,7 @@
     buildStopsSeg();
     bindStandardModal();
     bindLoadedModal();
+    bindDataModal();
     reoptimize(); // 첫 노선 자동 선택 → 지도에도 첫 노선 경로 (근사 좌표 기준)
 
     mapApi.load(function () {

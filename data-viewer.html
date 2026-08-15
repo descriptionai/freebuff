@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기준자료 조회 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/data-viewer.css" />
+</head>
+<body>
+  <header class="dv-head">
+    <h1 class="dv-title">기준자료 조회</h1>
+    <span class="dv-sub">단가표 · 적재수량 · 수집운송 조사결과 (엑셀 원본에서 추출)</span>
+    <button id="btn-close" class="btn primary" type="button">닫기</button>
+  </header>
+
+  <nav class="dv-tabs" aria-label="자료 종류">
+    <button data-tab="capacity" class="tab active" type="button">① 적재수량표</button>
+    <button data-tab="direct" class="tab" type="button">② 직영단가표</button>
+    <button data-tab="consign" class="tab" type="button">③ 민간위탁 단가표</button>
+    <button data-tab="survey" class="tab" type="button">④ 수집운송 조사결과</button>
+  </nav>
+
+  <main class="dv-body">
+    <section id="tab-capacity" class="dv-pane active">
+      <div class="tbl-wrap" id="capacity-table"></div>
+    </section>
+
+    <section id="tab-direct" class="dv-pane">
+      <div class="ctrl">
+        <label>표 종류
+          <select id="direct-tbl"></select>
+        </label>
+        <span class="meta">거리(km) × 톤급 · 부가세 별도 · 단위: 원</span>
+      </div>
+      <div id="direct-pane-inner" class="tbl-wrap" style="overflow:auto;"></div>
+    </section>
+
+    <section id="tab-consign" class="dv-pane">
+      <div class="ctrl">
+        <label>구분
+          <select id="consign-sec"></select>
+        </label>
+        <label>단가
+          <select id="consign-blk"></select>
+        </label>
+        <span class="meta">원단가 × 낙찰률 0.78 = 2025 계약단가 · × 1.0348 = 2026.4.1 단가</span>
+      </div>
+      <div id="consign-pane-inner" class="tbl-wrap" style="overflow:auto;"></div>
+    </section>
+
+    <section id="tab-survey" class="dv-pane">
+      <div class="ctrl">
+        <input id="survey-q" class="in" type="text" placeholder="관서명 · 주소 · 수집선로 검색" autocomplete="off" />
+        <select id="survey-mode">
+          <option value="">전체 상차방식</option>
+          <option value="롤">롤</option>
+          <option value="낱소포">낱소포</option>
+        </select>
+        <span id="survey-count" class="meta"></span>
+      </div>
+      <div id="survey-table" class="tbl-wrap" style="overflow:auto;"></div>
+    </section>
+  </main>
+
+  <!-- 데이터 (엑셀에서 추출) → 조회 로직 -->
+  <script src="data/loading_capacity.js"></script>
+  <script src="data/direct_rate_2026.js"></script>
+  <script src="data/consignment_rate_2026.js"></script>
+  <script src="data/collection_survey.js"></script>
+  <script src="js/data-viewer.js"></script>
+</body>
+</html>

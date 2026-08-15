@@ -19,6 +19,7 @@
     <div class="header-right">
       <button id="cost-standard-btn" class="src-badge cost-btn" type="button" title="노선 비용 산정 기준을 열기">⚙ 비용산정기준</button>
       <button id="loaded-btn" class="src-badge cost-btn" type="button" title="기존물량등록 화면을 열기">📦 기존물량등록</button>
+      <button id="data-btn" class="src-badge cost-btn" type="button" title="기준자료(단가표·적재수량·조사결과) 조회">📊 기준자료</button>
     </div>
   </header>
 
@@ -80,6 +81,13 @@
   <div id="loaded-overlay" class="standard-overlay" hidden>
     <div class="standard-frame">
       <iframe id="loaded-frame" data-src="loaded.html" title="기존물량등록"></iframe>
+    </div>
+  </div>
+
+  <!-- 기준자료 조회 오버레이 (data-viewer.html 을 중앙 90% 크기로 표시) -->
+  <div id="data-overlay" class="standard-overlay" hidden>
+    <div class="standard-frame" style="width:min(1440px,94vw); height:min(92vh,1000px);">
+      <iframe id="data-frame" data-src="data-viewer.html" title="기준자료 조회"></iframe>
     </div>
   </div>
 

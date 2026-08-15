@@ -1,0 +1,235 @@
+/* ============================================================
+   기준자료 조회 (data-viewer.html)
+   다크 글래스모피즘 — 노선 네비게이션 디자인 언어 계승
+   ============================================================ */
+:root {
+  --bg: #0b1020;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #eef2ff;
+  --dim: #9aa5c4;
+  --accent-1: #2b6cff;
+  --accent-2: #8a4bff;
+  --accent-grad: linear-gradient(120deg, #2b6cff, #8a4bff);
+  --success: #34d399;
+  --warn: #fbbf24;
+  font-size: 15px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic',
+    'Apple SD Gothic Neo', sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(720px 420px at 12% -12%, rgba(45, 120, 255, 0.24), transparent 60%),
+    radial-gradient(640px 400px at 108% 112%, rgba(124, 77, 255, 0.2), transparent 55%),
+    var(--bg);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ===================== 헤더 ===================== */
+.dv-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px 22px 10px;
+}
+.dv-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dv-sub { font-size: 0.78rem; color: var(--dim); }
+.dv-head .btn { margin-left: auto; }
+
+/* ===================== 탭 ===================== */
+.dv-tabs {
+  display: flex;
+  gap: 6px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 4px 22px 10px;
+  flex-wrap: wrap;
+}
+.tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.tab:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.28); }
+.tab.active {
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(70, 100, 255, 0.35);
+}
+
+/* ===================== 본문 ===================== */
+.dv-body {
+  flex: 1;
+  min-height: 0;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 22px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.dv-pane { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.dv-pane.active { display: flex; }
+
+/* 컨트롤 바 */
+.ctrl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+}
+.ctrl label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--dim);
+  font-weight: 700;
+}
+.ctrl select, .ctrl .in {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 11px;
+}
+.ctrl select { cursor: pointer; }
+.ctrl .in { flex: 1; min-width: 220px; max-width: 420px; }
+.ctrl .in:focus, .ctrl select:focus { outline: none; border-color: var(--accent-1); }
+.meta { font-size: 0.75rem; color: var(--dim); }
+
+/* 정보 배너 */
+.info-note {
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(43, 108, 255, 0.1);
+  border: 1px solid rgba(43, 108, 255, 0.35);
+  font-size: 0.8rem;
+  color: #bcd6ff;
+}
+.info-note.warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+}
+
+/* ===================== 테이블 ===================== */
+.tbl-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+}
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(11, 16, 32, 0.95);
+  color: var(--dim);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
+td.num, th.num { text-align: right; }
+td.c { text-align: center; }
+tbody tr.mode-roll td.mode { color: #7ee8c2; font-weight: 800; }
+tbody tr.mode-parcel td.mode { color: #fbbf24; font-weight: 800; }
+
+/* 거리×톤급 단가표: 첫 열(거리) 강조 */
+table.rate thead th:first-child, table.rate tbody td:first-child {
+  position: sticky;
+  left: 0;
+  background: rgba(11, 16, 32, 0.96);
+  color: var(--text);
+  font-weight: 800;
+  z-index: 1;
+}
+table.rate thead th:first-child { z-index: 3; }
+
+/* ===================== 버튼/스크롤바 ===================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.86rem;
+  padding: 9px 18px;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.btn:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.3); }
+.btn.primary { background: var(--accent-grad); border-color: transparent; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 8px; }
+
+@media (max-width: 860px) {
+  :root { font-size: 14px; }
+  .dv-head, .dv-tabs, .dv-body { padding-left: 12px; padding-right: 12px; }
+}
