@@ -471,15 +471,21 @@
   }
 
   function pickProvider() {
+    // ── 카카오 지도 고정: 네이버/Leaflet 폴백 모두 비활성화 ──
+    return 'kakao';
+    /* 원래 로직 (비활성화)
     if (PROVIDER === 'kakao') return 'kakao';
     if (PROVIDER === 'naver') return 'naver';
     if (PROVIDER === 'leaflet') return 'leaflet';
     if (KAKAO_APPKEY) return 'kakao';
     return effectiveClientId() ? 'naver' : 'leaflet';
+    */
   }
 
   // 무료 지도(Leaflet) CSS/JS 로드 — 키 필요 없음 (CSS → JS 순서 보장)
+  // ── Leaflet 비활성화: 카카오 지도만 사용하므로 더 이상 무료 지도(Leaflet)를 로드하지 않습니다 ──
   function loadLeaflet(cb) {
+    /* Leaflet 비활성화됨
     if (window.L) { cb(); return; }
     var loadJs = function () {
       var s = document.createElement('script');
@@ -497,6 +503,7 @@
     css.onload = loadJs;
     css.onerror = loadJs; // CSS 실패해도 JS로 계속 진행
     document.head.appendChild(css);
+    */
   }
 
   function showNoKey(msg) {
@@ -549,12 +556,12 @@
       var p = pointOf(o);
       if (this.name === 'naver') return new naver.maps.LatLng(p.lat, p.lng);
       if (this.name === 'kakao') return new kakao.maps.LatLng(p.lat, p.lng);
-      return [p.lat, p.lng];
+      // return [p.lat, p.lng]; // ← Leaflet 전용 [lat, lng] 배열 포맷 (비활성화)
     },
 
     load: function (cb) {
       var self = this;
-      if (self.name === 'leaflet') { loadLeaflet(cb); return; }
+      // if (self.name === 'leaflet') { loadLeaflet(cb); return; } // ← Leaflet 비활성화
       if (self.name === 'kakao') {
         if (window.kakao && window.kakao.maps) { cb(); return; }
         if (!KAKAO_APPKEY) {
@@ -592,6 +599,7 @@
 
     init: function () {
       var self = this;
+      /* ── Leaflet 비활성화 (카카오 지도만 사용) ──
       if (self.name === 'leaflet') {
         self.map = L.map(mapEl, { zoomControl: true, minZoom: 7 })
           .setView([DEPOT.lat, DEPOT.lng], 11);
@@ -604,7 +612,8 @@
         });
         setTimeout(function () { self.map.invalidateSize(); }, 120);
         statusText('무료 지도(Leaflet + OSM/CARTO) 로드 완료');
-      } else if (self.name === 'kakao') {
+      } else */
+      if (self.name === 'kakao') {
         self.map = new kakao.maps.Map(mapEl, {
           center: new kakao.maps.LatLng(DEPOT.lat, DEPOT.lng),
           level: 9,
@@ -633,14 +642,14 @@
     clear: function () {
       var self = this, i;
       for (i = 0; i < self.overlays.length; i++) {
-        if (self.name === 'leaflet') self.overlays[i].remove();
-        else self.overlays[i].setMap(null);
+        // if (self.name === 'leaflet') self.overlays[i].remove(); // ← Leaflet 비활성화
+        self.overlays[i].setMap(null);
       }
       self.overlays = [];
       self.clearLines();
       if (self.infoWin) {
-        if (self.name === 'leaflet') self.map.closePopup();
-        else self.infoWin.close();
+        // if (self.name === 'leaflet') self.map.closePopup(); // ← Leaflet 비활성화
+        self.infoWin.close();
         self.infoWin = null;
       }
     },
@@ -664,21 +673,23 @@
           strokeColor: color,
           strokeOpacity: 0.95
         });
-      } else {
+      } /* ── Leaflet 비활성화 ──
+      else {
         line = L.polyline(path, {
           color: color,
           weight: 6,
           opacity: 0.95
         }).addTo(self.map);
       }
+      */
       self.lineOverlays.push(line);
     },
 
     clearLines: function () {
       var self = this, i;
       for (i = 0; i < self.lineOverlays.length; i++) {
-        if (self.name === 'leaflet') self.lineOverlays[i].remove();
-        else self.lineOverlays[i].setMap(null);
+        // if (self.name === 'leaflet') self.lineOverlays[i].remove(); // ← Leaflet 비활성화
+        self.lineOverlays[i].setMap(null);
       }
       self.lineOverlays = [];
     },
@@ -726,7 +737,8 @@
         if (opts.onClick) {
           el.addEventListener('click', function () { opts.onClick(m); });
         }
-      } else {
+      } /* ── Leaflet 비활성화 ──
+      else {
         m = L.marker(self.latLng(o), {
           icon: L.divIcon({
             className: '',
@@ -739,6 +751,7 @@
         }).addTo(self.map);
         if (opts.onClick) m.on('click', function () { opts.onClick(m); });
       }
+      */
       self.overlays.push(m);
       return { marker: m, el: el, office: o }; // 마커 + DOM 요소 + 대상 좌표
     },
@@ -759,13 +772,15 @@
         self.infoWin = new kakao.maps.InfoWindow({ content: html, zIndex: 210 });
         var pos = typeof marker.getPosition === 'function' ? marker.getPosition() : self.latLng(marker.office || marker);
         self.infoWin.open(self.map, pos);
-      } else {
+      } /* ── Leaflet 비활성화 ──
+      else {
         self.map.closePopup();
         self.infoWin = L.popup({ closeButton: false })
           .setLatLng(marker.getLatLng())
           .setContent(html)
           .openOn(self.map);
       }
+      */
     },
 
     fit: function (points) {
@@ -778,9 +793,11 @@
         var kb = new kakao.maps.LatLngBounds();
         points.forEach(function (p) { kb.extend(p); });
         self.map.setBounds(kb, 90, 90, 90, 90);
-      } else {
+      } /* ── Leaflet 비활성화 ──
+      else {
         self.map.fitBounds(points, { padding: [50, 50] });
       }
+      */
     },
 
     // 지도 정중앙으로 이동 (줌/상태 유지)
