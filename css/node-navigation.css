@@ -518,7 +518,8 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
   font-weight: 800;
 }
 
-/* ===================== 무료 지도 (Leaflet) ===================== */
+/* ===================== 무료 지도 (Leaflet) =====================
+   ── Leaflet 비활성화 (카카오 지도 사용) ──
 .leaflet-container {
   background: #141927;
   font-family: inherit;
@@ -551,6 +552,7 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
   box-shadow: none;
   padding: 12px 14px;
 }
+============================================================ */
 
 /* ===================== 지도 오버레이 마커 (네이버/Leaflet 공용) ===================== */
 .nmarker {
