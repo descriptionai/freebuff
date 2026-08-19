@@ -72,7 +72,7 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
   padding: 22px 20px 16px;
 }
 
-.brand { display: flex; align-items: center; gap: 13px; }
+.brand { display: flex; align-items: center; gap: 13px; cursor: pointer; text-decoration: none; }
 .brand .dot {
   width: 13px; height: 13px;
   border-radius: 50%;
@@ -212,6 +212,70 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
   box-shadow: 0 3px 12px rgba(70, 100, 255, 0.4);
 }
 
+/* ---- 검색 필터 바 ---- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px 10px;
+}
+.search-select {
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+.search-select:focus {
+  outline: none;
+  border-color: var(--accent-1);
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 7px 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.search-input::placeholder { color: rgba(154, 165, 196, 0.5); }
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 3px rgba(43, 108, 255, 0.2);
+}
+.search-btn {
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: var(--accent-grad);
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(70, 100, 255, 0.4);
+}
+
 .route-list {
   flex: 1;
   min-height: 0;
@@ -292,8 +356,16 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
   line-height: 1.15;
 }
 .route-km small {
-  display: block;
+  display: inline;
   font-size: 0.62rem;
+  font-weight: 700;
+  color: #59647b;
+  margin-left: 1px;
+}
+.route-km .rt-time {
+  display: inline;
+  margin-left: 6px;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #59647b;
 }
@@ -555,6 +627,11 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
 ============================================================ */
 
 /* ===================== 지도 오버레이 마커 (네이버/Leaflet 공용) ===================== */
+/* 카카오 CustomOverlay 컨테이너 — 클릭 전달 */
+.custom-overlay, .nmarker {
+  pointer-events: auto !important;
+}
+
 .nmarker {
   position: relative;
   display: flex;
@@ -620,6 +697,7 @@ body::after  { width: 260px; height: 260px; right: -60px; bottom: 10%; backgroun
 .ninfow b { display: block; color: #fff; font-size: 0.88rem; margin-bottom: 3px; }
 .ninfow span { display: block; color: var(--dim); font-size: 0.74rem; margin-bottom: 4px; }
 .ninfow em { font-style: normal; color: #9cc2ff; font-size: 0.7rem; }
+.ninfo-phone { display: block; color: #7fdbca; font-size: 0.72rem; margin-bottom: 4px; }
 
 /* ===================== 비용산정기준 오버레이 ===================== */
 .standard-overlay {

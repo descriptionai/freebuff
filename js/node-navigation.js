@@ -1,52 +1,54 @@
 /* ============================================================
    중부권광역우편물류센터 — 노선별 네비게이션
    ============================================================
-   - 좌측(30%): 최적 노선 목록.
-       · 각 노선 카드는 연한 대표색 배경, 위아래 색이 겹치지 않음
-         (황금각 137.5° 색상 회전으로 인접 노선 hue 를 확실히 분리)
-       · 맨 처음 노선이 기본 선택 — 지도에도 첫 노선 경로가 표시됨
-       · 선택 시 카드 테두리가 해당 노선 대표색으로 강조
-   - 우측(70%): 선택 노선의 경로를 대표색으로 표시.
-       · 지도 프로바이더: 카카오 지도 (기본) / 네이버 지도
-         - 기본 'kakao': 카카오 JavaScript 키로 카카오 지도 표시
-         - 'naver' 로도 고정 가능 (js/node-navigation-data.js 의 mapProvider)
-   - 노선명 규칙: "중부권" + 출발 우체국명(우체국 제외) + "수집1-N"
-   - 최적화: Clarke-Wright 절약법 + 2-opt 경유 순서 개선
-     (제약: 노선당 방문 수 ≤ maxStopsPerRoute, 거리 ≤ maxKmPerRoute
-      → 그 범위 안에서 노선 수를 최소화)
-   - 거리: 실제 도로 주행 거리(OSRM 공개 서버, 키 불필요) 기준.
-       · 좌표 확정 후 거리 행렬을 1회 계산해 브라우저에 저장(재방문 즉시)
-       · OSRM 접속 불가 시 직선거리 × roadFactor(1.3) 추정치로 폴백
-   [네이버 지도 키(선택)]
-   - js/node-navigation-data.js 의 NAVER.clientId 를 채우거나
-   - 지도 영역의 안내창에서 바로 입력(브라우저 localStorage 저장) 가능
-   - 카카오 지도 appkey 는 js/node-navigation-data.js 의 kakao.appkey 에 입력합니다.
+   카카오 로컬 API로 우체국·취급국 좌표를 자동 수집하고
+   Clarke-Wright + 2-opt 알고리즘으로 최적 노선을 계산하여
+   카카오 지도에 표시합니다.
+
+   거리 계산: OSRM 공개 서버 (실제 도로 주행 거리, 키 불필요)
+   지도 표시: 카카오 지도 JavaScript API
+   좌표 수집: 카카오 로컬 API (REST API 키 필요)
    ============================================================ */
 (function () {
   'use strict';
 
-  /* ---------------- 설정 ---------------- */
+  /* ================================================================
+     1. 설정
+     ================================================================ */
   var CFG = window.NODE_NAV_CONFIG || {};
-  var NAVER_CFG = CFG.naver || {};
   var KAKAO_CFG = CFG.kakao || {};
   var KAKAO_APPKEY = KAKAO_CFG.appkey || '';
-  var DEPOT = CFG.depot || { name: '중부권광역우편물류센터', addr: '', lat: 36.2706944, lng: 127.4733805 };
-  var OFFICES = CFG.postOffices || [];
+  var KAKAO_REST_KEY = KAKAO_CFG.restApiKey || '';
+  var DEPOT = CFG.depot || { name: '중부권광역우편물류센터', addr: '대전 동구 안골로 11', lat: 36.2706944, lng: 127.4733805 };
   var MAX_STOPS = CFG.maxStopsPerRoute || 8;
   var MAX_KM = CFG.maxKmPerRoute || 60;
-  var ROAD = CFG.roadFactor || 1.3;
-  var PROVIDER = String(CFG.mapProvider || 'auto').toLowerCase(); // 'auto' | 'kakao' | 'naver' | 'leaflet'
+  var ROAD_FACTOR = CFG.roadFactor || 1.3;
+  var USE_ROAD = CFG.roadRouting !== false;
+  var OSRM_API = CFG.osrmUrl || 'https://router.project-osrm.org';
+  var SEARCH_CFG = CFG.search || {};
+  var SEARCH_KEYWORDS = SEARCH_CFG.keywords || ['대전 우체국', '대전 우편취급국'];
+  var SEARCH_RECT = SEARCH_CFG.rect || '127.25,36.23,127.55,36.48';
 
-  var LS_KEY = 'nav_client_id';
-  var USE_ROAD = CFG.roadRouting !== false; // 실제 도로 주행 거리(OSRM) 사용 여부
-  var OSRM_API = CFG.osrmUrl || 'https://router.project-osrm.org'; // 공개 서버 — 키 불필요
-  var MATRIX_KEY = 'nav_road_matrix_v2';
-  var GEO_CACHE = {}; // 노선 실제 도로 경로(폴리라인) 메모리 캐시
+  var LS_GEO_KEY = 'nav_geo_kakao_v1';   // 카카오 검색 좌표 캐시
+  var LS_MATRIX_KEY = 'nav_road_matrix_v3'; // OSRM 거리 행렬 캐시
 
-  /* ---------------- 유틸 ---------------- */
+  /* ================================================================
+     2. 상태
+     ================================================================ */
+  var OFFICES = [];        // 우체국 목록 (카카오 API에서 수집)
+  var routes = [];
+  var selectedId = null;
+  var ROAD_MATRIX = null;
+  var ROAD_DUR_MATRIX = null;  // 소요시간 행렬 (초)
+  var ROAD_MATRIX_SIG = '';
+  var ROAD_FAILED = false;
+  var GEO_CACHE = {};      // 노선 도로 경로 메모리 캐시
+
+  /* ================================================================
+     3. 유틸리티
+     ================================================================ */
   function $(id) { return document.getElementById(id); }
 
-  // 하버사인 거리(km)
   function distKm(a, b) {
     var R = 6371;
     var dLat = (b.lat - a.lat) * Math.PI / 180;
@@ -58,20 +60,16 @@
     return 2 * R * Math.asin(Math.sqrt(h));
   }
 
-  // HSL(h 0~360, s/l 0~100) → hex
   function hslToHex(h, s, l) {
     h = ((h % 360) + 360) % 360;
     s /= 100; l /= 100;
     var k = function (n) { return (n + h / 30) % 12; };
     var a = s * Math.min(l, 1 - l);
-    var f = function (n) {
-      return l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-    };
+    var f = function (n) { return l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); };
     var to255 = function (v) { return Math.round(255 * v).toString(16).padStart(2, '0'); };
     return '#' + to255(f(0)) + to255(f(8)) + to255(f(4));
   }
 
-  // 노선 대표색(진한색) / 카드 배경(연한색) / 선택 테두리 글로우
   function hueLine(h) { return hslToHex(h, 72, 46); }
   function hueBorder(h) { return hslToHex(h, 65, 42); }
   function hueBg(h) { return hslToHex(h, 55, 92); }
@@ -82,69 +80,188 @@
   }
 
   function fmtKm(km) { return (Math.round(km * 10) / 10).toFixed(1); }
+  function fmtTime(minutes) {
+    if (!Number.isFinite(minutes) || minutes < 0) return '';
+    minutes = Math.round(minutes);
+    if (minutes < 1) return '1분 미만';
+    var h = Math.floor(minutes / 60);
+    var m = minutes % 60;
+    if (h > 0 && m > 0) return h + '시간 ' + m + '분';
+    if (h > 0) return h + '시간';
+    return m + '분';
+  }
   function shortName(n) {
     return String(n).replace(/(우편취급국|우편취급소|우체국|취급국|취급소|출장소)/g, '').trim();
   }
   function routeName(stops, idx) {
     return '중부권' + shortName(stops[0].name) + '수집1-' + (idx + 1);
   }
-  // 사용자 데이터(데이터 파일)를 innerHTML/속성에 넣기 전에 이스케이프
   function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    return String(s).replace(/[&<>\"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
-  // 좌표가 없는 우체국: 구 단위 근사 좌표로 임시 사용 (이후 무료 좌표 변환으로 보정)
-  var GU_CENTER = {
-    동구: [36.327, 127.435], 중구: [36.319, 127.420], 서구: [36.322, 127.373],
-    유성구: [36.366, 127.340], 대덕구: [36.376, 127.425]
-  };
-  function fallbackCoord(o) {
-    var m = (o.addr || '').match(/(동구|중구|서구|유성구|대덕구)/);
-    var c = m && GU_CENTER[m[1]];
-    return c || [36.33, 127.39];
-  }
   function pointOf(o) {
-    // Number.isFinite: null/undefined 모두 false → 근사 좌표로 폴백
     return {
-      lat: Number.isFinite(o.lat) ? o.lat : fallbackCoord(o)[0],
-      lng: Number.isFinite(o.lng) ? o.lng : fallbackCoord(o)[1]
+      lat: Number.isFinite(o.lat) ? o.lat : DEPOT.lat,
+      lng: Number.isFinite(o.lng) ? o.lng : DEPOT.lng
     };
   }
 
-  /* ---------------- 실제 도로 주행 거리 (OSRM, 키 불필요) ----------------
-     지도상 직선거리가 아니라 실제 주행 가능한 도로 네트워크 기준 거리.
-     공개 OSRM 서버(router.project-osrm.org) 사용.
-     - 거리 행렬(table): 좌표 확정 후 1회 계산 → 브라우저(localStorage)에 저장해 재방문 즉시
-     - 경로 기하(route): 선택 노선의 실제 도로 경로 폴리라인을 지도에 표시
-     서버 접속 실패 시에는 기존 직선거리 × roadFactor 추정치로 폴백합니다. */
+  /* ================================================================
+     4. 카카오 로컬 API — 우체국 검색
+     ================================================================ */
+  function kakaoFetch(url) {
+    return fetch(url, {
+      headers: { 'Authorization': 'KakaoAK ' + KAKAO_REST_KEY }
+    }).then(function (r) {
+      if (!r.ok) throw new Error('카카오 API HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  /**
+   * 카카오 키워드 검색 — 페이지 단위로 전체 결과 수집
+   * @param {string} query  검색어
+   * @param {function} onProgress  진행 상태 콜백
+   * @returns {Promise<Array>} 검색 결과 문서 배열
+   */
+  function kakaoSearchAllPages(query, onProgress) {
+    var allDocs = [];
+    var page = 1;
+    var pageSize = SEARCH_CFG.pageSize || 15;
+
+    function searchPage() {
+      var url = 'https://dapi.kakao.com/v2/local/search/keyword.json'
+        + '?query=' + encodeURIComponent(query)
+        + '&rect=' + SEARCH_RECT
+        + '&size=' + pageSize
+        + '&page=' + page
+        + '&sort=accuracy';
+
+      return kakaoFetch(url).then(function (data) {
+        var docs = data.documents || [];
+        allDocs = allDocs.concat(docs);
+        if (onProgress) onProgress(allDocs.length);
+        if (data.meta && !data.meta.is_end) {
+          page++;
+          return new Promise(function (resolve) { setTimeout(resolve, 350); }).then(searchPage);
+        }
+        return allDocs;
+      });
+    }
+    return searchPage();
+  }
+
+  /**
+   * 전체 우체국 검색: 키워드별로 검색 → 이름 기준 중복 제거
+   */
+  function searchPostOfficesFromKakao(callback) {
+    if (!KAKAO_REST_KEY) {
+      statusText('카카오 REST API 키가 설정되지 않았습니다');
+      callback(false);
+      return;
+    }
+
+    var allResults = [];
+    var seenNames = {};
+    var kwIdx = 0;
+
+    statusText('카카오 로컬 API로 우체국 검색 중…');
+
+    function nextKeyword() {
+      if (kwIdx >= SEARCH_KEYWORDS.length) {
+        if (allResults.length > 0) {
+          OFFICES = allResults.map(function (doc) {
+            return {
+              name: doc.place_name,
+              addr: doc.road_address_name || doc.address_name,
+              lat: parseFloat(doc.y),
+              lng: parseFloat(doc.x),
+              phone: doc.phone || '',
+              kakaoId: doc.id
+            };
+          });
+          // 캐시 저장 (다음 방문 시 즉시 사용)
+          try { localStorage.setItem(LS_GEO_KEY, JSON.stringify(OFFICES)); } catch (e) { /* 무시 */ }
+          statusText('우체국 ' + OFFICES.length + '곳 검색 완료 ✅');
+          callback(true);
+        } else {
+          statusText('카카오 검색 결과 없음');
+          callback(false);
+        }
+        return;
+      }
+
+      var query = SEARCH_KEYWORDS[kwIdx];
+      statusText('검색 중: ' + query + '…');
+
+      kakaoSearchAllPages(query, function (count) {
+        statusText('검색 중: ' + query + ' — ' + count + '곳');
+      }).then(function (docs) {
+        docs.forEach(function (doc) {
+          // 이름+카카오ID 기준 중복 제거
+          var key = doc.id || doc.place_name;
+          if (!seenNames[key]) {
+            seenNames[key] = true;
+            allResults.push(doc);
+          }
+        });
+        kwIdx++;
+        setTimeout(nextKeyword, 400);
+      }).catch(function (err) {
+        statusText('검색 실패: ' + err.message + ' — 다음 키워드로 계속');
+        kwIdx++;
+        setTimeout(nextKeyword, 400);
+      });
+    }
+    nextKeyword();
+  }
+
+  /**
+   * 캐시된 검색 결과 로드 (로드 즉시 렌더링 가능)
+   */
+  function loadCachedOffices() {
+    try {
+      var cached = JSON.parse(localStorage.getItem(LS_GEO_KEY) || 'null');
+      if (Array.isArray(cached) && cached.length > 0) {
+        OFFICES = cached;
+        return true;
+      }
+    } catch (e) { /* 무시 */ }
+    return false;
+  }
+
+  /* ================================================================
+     5. OSRM — 실제 도로 주행 거리
+     ================================================================ */
   function getJson(url, timeoutMs) {
     var ctrl = new AbortController();
     var tmr = setTimeout(function () { ctrl.abort(); }, timeoutMs || 12000);
     return fetch(url, { signal: ctrl.signal })
-      .then(function (r) {
-        if (!r.ok) throw new Error('http ' + r.status);
-        return r.json();
-      })
+      .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function (d) { clearTimeout(tmr); return d; })
       .catch(function (e) { clearTimeout(tmr); throw e; });
   }
 
-  // OSRM 좌표 문자열 (경도,위도)
   function osrmCoordStr(o) {
     var p = pointOf(o);
     return p.lng.toFixed(6) + ',' + p.lat.toFixed(6);
   }
 
-  // 전체 거리 행렬(미터) 요청 — 실패 시 40개씩 청크로 분할 재시도
+  function matrixSig() {
+    return [pointOf(DEPOT)].concat(OFFICES.map(pointOf))
+      .map(function (p) { return p.lat.toFixed(4) + ',' + p.lng.toFixed(4); }).join('|');
+  }
+
   function osrmTable(points) {
-    var n = points.length, all = [], i;
-    for (i = 0; i < n; i++) all.push(points[i].lng.toFixed(6) + ',' + points[i].lat.toFixed(6));
+    var n = points.length, all = [];
+    for (var i = 0; i < n; i++) all.push(points[i].lng.toFixed(6) + ',' + points[i].lat.toFixed(6));
     var path = all.join(';');
-    var base = OSRM_API + '/table/v1/driving/' + path + '?annotations=distance';
+    var base = OSRM_API + '/table/v1/driving/' + path + '?annotations=distance,duration';
     var allIdx = [];
-    for (i = 0; i < n; i++) allIdx.push(i);
+    for (var j = 0; j < n; j++) allIdx.push(j);
 
     var attempt = function (sources, destinations) {
       return getJson(base + '&sources=' + sources.join(';') + '&destinations=' + destinations.join(';'), 20000)
@@ -154,8 +271,6 @@
         });
     };
 
-    // 전체를 한 번에 → 실패하면 청크로 분할(공개 서버 부하 배려, 요청 간격 400ms)
-    // 부분 성공한 청크는 그대로 병합하고, 실패한 행만 null로 두어 폴백하게 함
     return attempt(allIdx, allIdx).catch(function () {
       var m = [], pos = 0, anyOk = false;
       function nextChunk() {
@@ -167,11 +282,10 @@
         for (var k = pos; k < Math.min(pos + 40, n); k++) src.push(k);
         return attempt(src, allIdx).then(function (block) {
           block.forEach(function (row, r) { m[pos + r] = row; });
-          anyOk = true;
-          pos += src.length;
+          anyOk = true; pos += src.length;
           return new Promise(function (res) { setTimeout(res, 400); }).then(nextChunk);
         }).catch(function () {
-          pos += src.length; // 이 청크 실패 — 해당 행은 null(직선 폴백) 처리 후 계속
+          pos += src.length;
           return new Promise(function (res) { setTimeout(res, 400); }).then(nextChunk);
         });
       }
@@ -179,16 +293,49 @@
     });
   }
 
-  var ROAD_MATRIX = null;   // n×n 도로 거리(km) — 0=물류센터, 1..=우체국
-  var ROAD_MATRIX_SIG = ''; // 행렬 생성 당시 좌표 시그니처
-  var ROAD_FAILED = false;  // OSRM 접속 실패 시 true — 중복 요청 방지
+  /** OSRM table — distance + duration 한 번에 가져오기 */
+  function osrmTableDistDur(points) {
+    var n = points.length, all = [];
+    for (var i = 0; i < n; i++) all.push(points[i].lng.toFixed(6) + ',' + points[i].lat.toFixed(6));
+    var path = all.join(';');
+    var base = OSRM_API + '/table/v1/driving/' + path + '?annotations=distance,duration';
+    var allIdx = [];
+    for (var j = 0; j < n; j++) allIdx.push(j);
 
-  function matrixSig() {
-    return [pointOf(DEPOT)].concat(OFFICES.map(pointOf))
-      .map(function (p) { return p.lat.toFixed(4) + ',' + p.lng.toFixed(4); }).join('|');
+    var attempt = function (sources, destinations) {
+      return getJson(base + '&sources=' + sources.join(';') + '&destinations=' + destinations.join(';'), 20000)
+        .then(function (res) {
+          if (!res || res.code !== 'Ok' || !res.distances || !res.durations) throw new Error('osrm table fail');
+          return { distances: res.distances, durations: res.durations };
+        });
+    };
+
+    return attempt(allIdx, allIdx).catch(function () {
+      var dm = [], tm = [], pos = 0, anyOk = false;
+      function nextChunk() {
+        if (pos >= n) {
+          if (!anyOk) throw new Error('osrm table all chunks failed');
+          return { distances: dm, durations: tm };
+        }
+        var src = [];
+        for (var k = pos; k < Math.min(pos + 40, n); k++) src.push(k);
+        return attempt(src, allIdx).then(function (block) {
+          // block.distances는 (src.length × n) 행렬
+          for (var r = 0; r < block.distances.length; r++) {
+            dm[pos + r] = block.distances[r];
+            tm[pos + r] = block.durations[r];
+          }
+          anyOk = true; pos += src.length;
+          return new Promise(function (res) { setTimeout(res, 400); }).then(nextChunk);
+        }).catch(function () {
+          pos += src.length;
+          return new Promise(function (res) { setTimeout(res, 400); }).then(nextChunk);
+        });
+      }
+      return nextChunk();
+    });
   }
 
-  // 좌표 확정 후 도로 거리 행렬 계산 + 캐시. done: 완료 콜백
   function computeRoadMatrix(done) {
     done = done || function () {};
     if (!USE_ROAD || !OFFICES.length) { done(); return; }
@@ -196,45 +343,41 @@
     var sig = matrixSig();
     var n = pts.length;
 
-    var cached = null;
-    try { cached = JSON.parse(localStorage.getItem(MATRIX_KEY) || 'null'); } catch (e) { /* 무시 */ }
-    if (cached && cached.sig === sig && Array.isArray(cached.m) && cached.m.length === n) {
-      ROAD_MATRIX = cached.m;
-      ROAD_MATRIX_SIG = sig;
-      done();
-      return;
-    }
+    // 캐시 확인
+    try {
+      var cached = JSON.parse(localStorage.getItem(LS_MATRIX_KEY) || 'null');
+      if (cached && cached.sig === sig && Array.isArray(cached.m) && cached.m.length === n) {
+        ROAD_MATRIX = cached.m; ROAD_DUR_MATRIX = cached.t || null; ROAD_MATRIX_SIG = sig; done(); return;
+      }
+    } catch (e) { /* 무시 */ }
 
-    statusEl.hidden = false;
-    statusEl.textContent = '실제 도로 거리 계산 중 (첫 1회만, 이후 자동 저장)…';
-    osrmTable(pts).then(function (dists) {
-      var m = dists.map(function (row, i) {
+    statusText('실제 도로 거리·소요시간 계산 중 (첫 1회만)…');
+    osrmTableDistDur(pts).then(function (res) {
+      var m = res.distances.map(function (row, i) {
         return row.map(function (v, j) {
-          return Number.isFinite(v) ? v / 1000 : distKm(pts[i], pts[j]) * ROAD;
+          return Number.isFinite(v) ? v / 1000 : distKm(pts[i], pts[j]) * ROAD_FACTOR;
         });
       });
-      ROAD_MATRIX = m;
-      ROAD_MATRIX_SIG = sig;
-      try { localStorage.setItem(MATRIX_KEY, JSON.stringify({ sig: sig, m: m })); } catch (e) { /* 무시 */ }
-      clearTimeout(statusTimer);
-      statusEl.textContent = '실제 도로 거리 반영 완료 — 노선 재계산';
-      statusTimer = setTimeout(function () { statusEl.hidden = true; }, 3000);
+      var tm = res.durations.map(function (row) {
+        return row.map(function (v) { return Number.isFinite(v) ? v : 0; });
+      });
+      ROAD_MATRIX = m; ROAD_DUR_MATRIX = tm; ROAD_MATRIX_SIG = sig;
+      try { localStorage.setItem(LS_MATRIX_KEY, JSON.stringify({ sig: sig, m: m, t: tm })); } catch (e) { /* 무시 */ }
+      statusText('도로 거리·소요시간 반영 완료 ✅');
       done();
     }).catch(function () {
-      ROAD_MATRIX = null;
-      ROAD_FAILED = true;
-      statusText('도로 거리 서버 접속 실패 — 직선거리 × ' + ROAD + ' 추정치로 계산합니다');
+      ROAD_MATRIX = null; ROAD_DUR_MATRIX = null; ROAD_FAILED = true;
+      statusText('도로 거리 서버 접속 실패 — 추정치로 계산');
       done();
     });
   }
 
-  // 선택 노선의 실제 도로 경로 기하(geojson 좌표) 요청 — 실패 시 null
   function routeGeoSig(r) {
     return r.stops.concat([DEPOT]).map(function (o) {
-      var p = pointOf(o);
-      return p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+      var p = pointOf(o); return p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
     }).join('>');
   }
+
   function fetchRouteGeometry(r, cb) {
     if (!USE_ROAD) { cb(null); return; }
     var sig = routeGeoSig(r);
@@ -249,13 +392,12 @@
       .catch(function () { cb(null); });
   }
 
-  /* ---------------- 노선 최적화 (Clarke-Wright + 2-opt) ----------------
-     노선은 '첫 방문 우체국에서 출발 → … → 물류센터에 도착'하는 개방형 경로.
-     최적화는 물류센터를 종점으로 두고 진행합니다. */
-  // 개방형 경로 길이: 첫 우체국 → … → 마지막 우체국 → 물류센터
+  /* ================================================================
+     6. 노선 최적화 — Clarke-Wright + 2-opt
+     ================================================================ */
   function openRouteLen(order, d0, d) {
-    var t = 0, k;
-    for (k = 1; k < order.length; k++) t += d(order[k - 1], order[k]);
+    var t = 0;
+    for (var k = 1; k < order.length; k++) t += d(order[k - 1], order[k]);
     return t + d0[order[order.length - 1]];
   }
 
@@ -270,8 +412,7 @@
             tmp = cand[i + x]; cand[i + x] = cand[k - x]; cand[k - x] = tmp;
           }
           if (openRouteLen(cand, d0, d) < openRouteLen(best, d0, d) - 1e-9) {
-            best = cand;
-            improved = true;
+            best = cand; improved = true;
           }
         }
       }
@@ -280,10 +421,9 @@
   }
 
   function buildRoutes() {
-    var n = OFFICES.length, i, j, k;
+    var n = OFFICES.length;
     if (!n) return [];
 
-    // 실제 도로 거리 행렬(OSRM)이 현재 좌표와 일치하면 사용, 아니면 직선거리 × 보정 계수
     var pts = [pointOf(DEPOT)].concat(OFFICES.map(pointOf));
     var useRoad = USE_ROAD && ROAD_MATRIX && ROAD_MATRIX.length === pts.length && ROAD_MATRIX_SIG === matrixSig();
     var roadDist = function (a, b) {
@@ -291,93 +431,145 @@
         var v = ROAD_MATRIX[a] && ROAD_MATRIX[a][b];
         if (Number.isFinite(v)) return v;
       }
-      return distKm(pts[a], pts[b]) * ROAD;
+      return distKm(pts[a], pts[b]) * ROAD_FACTOR;
+    };
+    var useDur = useRoad && ROAD_DUR_MATRIX && ROAD_DUR_MATRIX.length === pts.length;
+    var roadDur = function (a, b) {
+      if (useDur) {
+        var v = ROAD_DUR_MATRIX[a] && ROAD_DUR_MATRIX[a][b];
+        if (Number.isFinite(v)) return v;
+      }
+      return distKm(pts[a], pts[b]) * ROAD_FACTOR / 40 * 3600; // 추정: 40km/h 평균속도
     };
     var d0 = OFFICES.map(function (_, kk) { return roadDist(0, kk + 1); });
     var d = function (a, b) { return roadDist(a + 1, b + 1); };
+    var t0 = OFFICES.map(function (_, kk) { return roadDur(0, kk + 1); });
+    var t = function (a, b) { return roadDur(a + 1, b + 1); };
+    function routeTimeMin(stops) {
+      if (!stops.length) return 0;
+      var sec = t0[stops[0]];
+      for (var k = 1; k < stops.length; k++) sec += t(stops[k - 1], stops[k]);
+      sec += t0[stops[stops.length - 1]];
+      return Math.round(sec / 60);
+    }
 
-    // 1) 절약값(savings) 계산 후 내림차순
+    // Clarke-Wright 절약값
     var pairs = [];
-    for (i = 0; i < n; i++) {
-      for (j = i + 1; j < n; j++) {
+    for (var i = 0; i < n; i++) {
+      for (var j = i + 1; j < n; j++) {
         pairs.push({ i: i, j: j, s: d0[i] + d0[j] - d(i, j) });
       }
     }
     pairs.sort(function (a, b) { return b.s - a.s; });
 
-    // 2) 각 우체국을 단독 노선으로 시작
-    var routes = OFFICES.map(function (_, kk) { return { stops: [kk], km: 2 * d0[kk] }; });
+    // 단독 노선으로 시작
+    var routesArr = OFFICES.map(function (_, kk) { return { stops: [kk], km: 2 * d0[kk], minutes: Math.round((2 * t0[kk]) / 60) }; });
     var which = OFFICES.map(function (_, kk) { return kk; });
 
-    // 3) 절약값이 큰 순서대로 제약을 지키는 범위에서 노선 병합
+    // 병합
     pairs.forEach(function (p) {
       var ri = which[p.i], rj = which[p.j];
       if (ri === rj) return;
-      var A = routes[ri], B = routes[rj];
+      var A = routesArr[ri], B = routesArr[rj];
       var tailI = A.stops[A.stops.length - 1] === p.i;
       var headJ = B.stops[0] === p.j;
       var tailJ = B.stops[B.stops.length - 1] === p.j;
       var headI = A.stops[0] === p.i;
-      if (!((tailI && headJ) || (tailJ && headI))) return; // 경로 끝끼리만 연결
+      if (!((tailI && headJ) || (tailJ && headI))) return;
 
       var newStops = tailI ? A.stops.concat(B.stops) : B.stops.concat(A.stops);
       if (newStops.length > MAX_STOPS) return;
 
       var km = d0[newStops[0]];
-      for (k = 1; k < newStops.length; k++) km += d(newStops[k - 1], newStops[k]);
+      for (var k = 1; k < newStops.length; k++) km += d(newStops[k - 1], newStops[k]);
       km += d0[newStops[newStops.length - 1]];
-      if (km > MAX_KM) return; // km 는 이미 실제 도로 거리(km)
+      if (km > MAX_KM) return;
 
       var keep = tailI ? A : B, drop = tailI ? B : A;
       var keepIdx = keep === A ? ri : rj;
       var dropCust = drop.stops.slice();
-      keep.stops = newStops;
-      keep.km = km;
+      keep.stops = newStops; keep.km = km; keep.minutes = routeTimeMin(newStops);
       drop.stops = [];
       dropCust.forEach(function (c) { which[c] = keepIdx; });
     });
 
-    // 4) 2-opt 로 각 노선의 경유 순서를 더 짧게 (물류센터 종점 기준)
-    var live = routes.filter(function (r) { return r.stops.length > 0; });
+    // 2-opt
+    var live = routesArr.filter(function (r) { return r.stops.length > 0; });
     live.forEach(function (r) {
       r.stops = twoOpt(r.stops, d0, d);
-      r.km = openRouteLen(r.stops, d0, d); // 첫 우체국 출발 → 물류센터 도착
+      r.km = openRouteLen(r.stops, d0, d);
+      r.minutes = routeTimeMin(r.stops);
     });
 
-    // 5) 첫 방문 우체국 이름순 정렬 → 번호/색상 부여
-    live.sort(function (a, b) {
-      return a.stops[0] === b.stops[0] ? 0 : (a.stops[0] < b.stops[0] ? -1 : 1);
-    });
+    // 정렬 + 색상 부여
+    live.sort(function (a, b) { return a.stops[0] - b.stops[0]; });
 
     return live.map(function (r, idx) {
-      var hue = (idx * 137.508) % 360; // 황금각: 인접 노선 hue 가 겹치지 않음
+      var hue = (idx * 137.508) % 360;
       var stopObjs = r.stops.map(function (c) { return OFFICES[c]; });
       return {
-        id: idx,
-        hue: hue,
+        id: idx, hue: hue,
         name: routeName(stopObjs, idx),
-        stops: stopObjs,
-        km: r.km, // 이미 실제 도로 거리(또는 폴백 추정치)
-        lineColor: hueLine(hue),
-        borderColor: hueBorder(hue),
-        bgColor: hueBg(hue),
-        glowColor: hueGlow(hue)
+        stops: stopObjs, km: r.km, minutes: r.minutes,
+        lineColor: hueLine(hue), borderColor: hueBorder(hue),
+        bgColor: hueBg(hue), glowColor: hueGlow(hue)
       };
     });
   }
 
-  /* ---------------- DOM ---------------- */
+  /* ================================================================
+     7. DOM — 노선 목록 렌더링
+     ================================================================ */
   var listEl = $('route-list'), countEl = $('route-count'), legendEl = $('legend');
   var nowEl = $('now-route'), mapEl = $('map');
-  var emptyEl = $('map-empty'), statusEl = $('map-status'), badgeEl = $('map-badge');
+  var emptyEl = $('map-empty'), statusEl = $('map-status');
+  var searchTypeEl = $('search-type'), searchInputEl = $('search-input'), searchBtnEl = $('search-btn');
 
-  var routes = [], selectedId = null;
+  /* ================================================================
+     7-A. 검색 필터
+     ================================================================ */
+  function filterRoutes(query, type) {
+    if (!query) return routes;
+    var q = query.toLowerCase();
+    return routes.filter(function (r) {
+      if (type === 'start') {
+        // 출발: 첫 번째 방문 우체국명에 포함
+        return r.stops.length > 0 && r.stops[0].name.toLowerCase().indexOf(q) !== -1;
+      }
+      if (type === 'end') {
+        // 도착: 마지막 방문 우체국명에 포함
+        return r.stops.length > 0 && r.stops[r.stops.length - 1].name.toLowerCase().indexOf(q) !== -1;
+      }
+      // 전체: 노선명 또는 모든 방문 우체국명에 포함
+      if (r.name.toLowerCase().indexOf(q) !== -1) return true;
+      for (var i = 0; i < r.stops.length; i++) {
+        if (r.stops[i].name.toLowerCase().indexOf(q) !== -1) return true;
+      }
+      return false;
+    });
+  }
 
-  /* ---------------- 좌측: 노선 목록 렌더링 ---------------- */
-  function renderList() {
+  function applySearch() {
+    var query = (searchInputEl.value || '').trim();
+    var type = searchTypeEl.value;
+    var filtered = filterRoutes(query, type);
+    renderList(filtered);
+  }
+
+  if (searchBtnEl) {
+    searchBtnEl.addEventListener('click', applySearch);
+  }
+  if (searchInputEl) {
+    searchInputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') applySearch();
+    });
+  }
+
+  function renderList(list) {
+    list = list || routes;
     listEl.innerHTML = '';
     var legendHtml = '';
-    routes.forEach(function (r) {
+    list.forEach(function (r) {
       var card = document.createElement('button');
       card.type = 'button';
       card.className = 'route-card';
@@ -385,6 +577,7 @@
       card.style.setProperty('--rc', r.borderColor);
       card.style.setProperty('--rc-soft', r.bgColor);
       card.style.setProperty('--rc-glow', r.glowColor);
+      var timeStr = Number.isFinite(r.minutes) ? fmtTime(r.minutes) : '';
       card.innerHTML =
         '<span class="route-bar"></span>' +
         '<span class="route-info">' +
@@ -392,18 +585,15 @@
         '<span class="route-meta">출발 ' + esc(shortName(r.stops[0].name)) + ' · 물류센터 도착</span>' +
         '</span>' +
         '<span class="route-count">' + r.stops.length + '곳</span>' +
-        '<span class="route-km">' + fmtKm(r.km) + '<small>km</small></span>';
+        '<span class="route-km">' + fmtKm(r.km) + '<small>km</small>' + (timeStr ? '<span class="rt-time">' + timeStr + '</span>' : '') + '</span>';
       card.addEventListener('click', function () { selectRoute(r.id); });
       listEl.appendChild(card);
-
       legendHtml += '<span class="lg" style="--sw:' + r.borderColor + '"><i class="swatch"></i>' + esc(r.name) + '</span>';
     });
     legendEl.innerHTML = legendHtml;
-
-    countEl.textContent = routes.length + '개';
+    countEl.textContent = list.length + '개';
   }
 
-  /* ---------------- 노선 선택 (테두리 강조 + 지도 갱신) ---------------- */
   function selectRoute(id) {
     selectedId = id;
     Array.prototype.forEach.call(listEl.children, function (c) {
@@ -413,9 +603,10 @@
     if (!r) return;
 
     nowEl.style.setProperty('--rc', r.borderColor);
+    var timeStr = Number.isFinite(r.minutes) ? ' ' + fmtTime(r.minutes) : '';
     nowEl.innerHTML =
       '<span class="nr-name" style="color:' + r.borderColor + '">' + esc(r.name) + '</span>' +
-      '<span class="nr-km">' + fmtKm(r.km) + ' km · ' + r.stops.length + '곳</span>' +
+      '<span class="nr-km">' + fmtKm(r.km) + ' km · ' + r.stops.length + '곳' + timeStr + '</span>' +
       '<div class="nr-stops">' +
       r.stops.map(function (o, k) {
         return '<button type="button" class="nr-stop" data-stop="' + k + '" title="' + esc(o.name) + ' — 클릭 시 지도 중앙 이동">' +
@@ -427,24 +618,24 @@
     drawRoute(r);
   }
 
-  /* ---------------- 노선당 방문 수 컨트롤 (최적 노선 수 탐색) ---------------- */
-  var stopsSegEl = $('stops-seg');
-
   function reoptimize() {
     routes = buildRoutes();
-    renderList();
+    applySearch();
     if (selectedId == null || selectedId >= routes.length) selectedId = 0;
     selectRoute(selectedId);
   }
+
+  /* ================================================================
+     8. 노선당 방문 수 컨트롤
+     ================================================================ */
+  var stopsSegEl = $('stops-seg');
 
   function buildStopsSeg() {
     if (!stopsSegEl) return;
     [5, 8, 10, 12].forEach(function (n) {
       var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'seg-btn' + (n === MAX_STOPS ? ' active' : '');
-      b.dataset.n = n;
-      b.textContent = n + '곳';
+      b.type = 'button'; b.className = 'seg-btn' + (n === MAX_STOPS ? ' active' : '');
+      b.dataset.n = n; b.textContent = n + '곳';
       b.title = '노선당 최대 방문 우체국 수 ' + n + '곳';
       b.addEventListener('click', function () {
         if (Number(b.dataset.n) === MAX_STOPS) return;
@@ -458,421 +649,167 @@
     });
   }
 
-  /* ============================================================
-     지도 프로바이더 추상화
-     - 'kakao'  : 카카오 지도 (appkey 필요)
-     - 'naver'  : 네이버 지도 (Client ID 필요)
-     - 'leaflet': 무료 지도 (키 불필요, OSM/CARTO 타일)
-     mapProvider 가 'auto' 이면 카카오 → 네이버 → 무료 순으로 자동 선택
-     ============================================================ */
-  function effectiveClientId() {
-    try { return localStorage.getItem(LS_KEY) || NAVER_CFG.clientId || ''; }
-    catch (e) { return NAVER_CFG.clientId || ''; }
-  }
-
-  function pickProvider() {
-    // ── 카카오 지도 고정: 네이버/Leaflet 폴백 모두 비활성화 ──
-    return 'kakao';
-    /* 원래 로직 (비활성화)
-    if (PROVIDER === 'kakao') return 'kakao';
-    if (PROVIDER === 'naver') return 'naver';
-    if (PROVIDER === 'leaflet') return 'leaflet';
-    if (KAKAO_APPKEY) return 'kakao';
-    return effectiveClientId() ? 'naver' : 'leaflet';
-    */
-  }
-
-  // 무료 지도(Leaflet) CSS/JS 로드 — 키 필요 없음 (CSS → JS 순서 보장)
-  /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-  function loadLeaflet(cb) {
-    if (window.L) { cb(); return; }
-    var loadJs = function () {
-      var s = document.createElement('script');
-      s.async = true;
-      s.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
-      s.onload = cb;
-      s.onerror = function () {
-        statusText('무료 지도(Leaflet) 로드 실패 — 인터넷 연결을 확인해주세요');
-      };
-      document.head.appendChild(s);
-    };
-    var css = document.createElement('link');
-    css.rel = 'stylesheet';
-    css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
-    css.onload = loadJs;
-    css.onerror = loadJs; // CSS 실패해도 JS로 계속 진행
-    document.head.appendChild(css);
-  }
-  */
-
-  function showNoKey(msg) {
-    statusEl.hidden = true;
-    emptyEl.hidden = false;
-    emptyEl.innerHTML =
-      '<div class="empty-card">' +
-      '<div class="ec-icon">🗺️</div>' +
-      '<h3>네이버 지도 키가 필요합니다</h3>' +
-      '<p>' + esc(msg || '네이버 지도(naver.maps)를 표시하려면 네이버 클라우드 플랫폼에서 발급받은 <b>Client ID</b>가 필요합니다.<br/>' +
-      '(키 없이 무료 지도를 쓰려면 데이터 파일의 <b>mapProvider</b>를 <b>"leaflet"</b>으로 바꾸세요.)') + '</p>' +
-      '<ol>' +
-      '<li>네이버 클라우드 플랫폼(<b>console.ncloud.com</b>) 가입 → 콘솔</li>' +
-      '<li><b>AI·Application Service → Maps</b> 서비스 신청 (무료)</li>' +
-      '<li>애플리케이션 등록 후 <b>Client ID</b> 복사</li>' +
-      '<li>아래에 붙여넣고 저장하면 바로 지도가 표시됩니다</li>' +
-      '</ol>' +
-      '<div class="ec-form">' +
-      '<input id="key-input" class="input" type="text" placeholder="Client ID (예: abcdefghij1234567890)" />' +
-      '<button id="key-save" class="btn primary" type="button">저장하고 다시 로드</button>' +
-      '</div>' +
-      '<p class="ec-note">※ 이 브라우저에만 저장됩니다. 파일(js/node-navigation-data.js)에 입력해도 됩니다.</p>' +
-      '</div>';
-    $('key-input').value = effectiveClientId();
-    $('key-save').addEventListener('click', function () {
-      var v = $('key-input').value.trim();
-      if (!v) return;
-      try { localStorage.setItem(LS_KEY, v); } catch (e) { /* 무시 */ }
-      location.reload();
-    });
-  }
-
+  /* ================================================================
+     9. 카카오 지도
+     ================================================================ */
   var statusTimer = null;
   function statusText(t) {
     statusEl.hidden = false;
     statusEl.textContent = t;
     clearTimeout(statusTimer);
-    statusTimer = setTimeout(function () { statusEl.hidden = true; }, 2600);
+    statusTimer = setTimeout(function () { statusEl.hidden = true; }, 3500);
   }
 
   var mapApi = {
-    name: pickProvider(),
     map: null,
     overlays: [],
     lineOverlays: [],
     infoWin: null,
 
-    // 좌표 객체 → 해당 지도 API 포맷
     latLng: function (o) {
       var p = pointOf(o);
-      if (this.name === 'naver') return new naver.maps.LatLng(p.lat, p.lng);
-      if (this.name === 'kakao') return new kakao.maps.LatLng(p.lat, p.lng);
-      // return [p.lat, p.lng]; // ← Leaflet 전용 [lat, lng] 배열 포맷 (비활성화)
+      return new kakao.maps.LatLng(p.lat, p.lng);
     },
 
     load: function (cb) {
-      var self = this;
-      // if (self.name === 'leaflet') { loadLeaflet(cb); return; } // ← Leaflet 비활성화
-      if (self.name === 'kakao') {
-        if (window.kakao && window.kakao.maps) { cb(); return; }
-        if (!KAKAO_APPKEY) {
-          statusText('카카오 지도 appkey가 설정되지 않았습니다 — js/node-navigation-data.js 의 kakao.appkey 를 확인해주세요.');
-          return;
-        }
-        var ksrc = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(KAKAO_APPKEY) + '&autoload=false';
-        var ks = document.createElement('script');
-        ks.async = true;
-        ks.src = ksrc;
-        ks.onload = function () {
-          if (window.kakao && window.kakao.maps) { kakao.maps.load(cb); return; }
-          statusText('카카오 지도 스크립트 로드 실패 — appkey와 허용 도메인 설정을 확인해주세요.');
-        };
-        ks.onerror = function () {
-          statusText('카카오 지도 스크립트를 불러오지 못했습니다 — appkey를 확인해주세요.');
-        };
-        document.head.appendChild(ks);
+      if (window.kakao && window.kakao.maps) { cb(); return; }
+      if (!KAKAO_APPKEY) {
+        statusText('카카오 지도 appkey가 설정되지 않았습니다');
         return;
       }
-      if (window.naver && window.naver.maps) { cb(); return; }
-      var cid = effectiveClientId();
-      if (!cid) { showNoKey(); return; }
-      var src = 'https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=' + encodeURIComponent(cid);
-      if (NAVER_CFG.subKey) src += '&subKey=' + encodeURIComponent(NAVER_CFG.subKey);
-      var s = document.createElement('script');
-      s.async = true;
-      s.src = src;
-      s.onload = cb;
-      s.onerror = function () {
-        showNoKey('네이버 지도 스크립트를 불러오지 못했습니다. Client ID가 정확한지 확인해주세요.');
+      var ks = document.createElement('script');
+      ks.async = true;
+      ks.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + encodeURIComponent(KAKAO_APPKEY) + '&autoload=false';
+      ks.onload = function () {
+        if (window.kakao && window.kakao.maps) { kakao.maps.load(cb); return; }
+        statusText('카카오 지도 스크립트 로드 실패');
       };
-      document.head.appendChild(s);
+      ks.onerror = function () { statusText('카카오 지도 스크립트를 불러오지 못했습니다'); };
+      document.head.appendChild(ks);
     },
 
     init: function () {
+      this.map = new kakao.maps.Map(mapEl, {
+        center: new kakao.maps.LatLng(DEPOT.lat, DEPOT.lng),
+        level: 9, minLevel: 1, maxLevel: 14
+      });
       var self = this;
-      /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-      if (self.name === 'leaflet') {
-        self.map = L.map(mapEl, { zoomControl: true, minZoom: 7 })
-          .setView([DEPOT.lat, DEPOT.lng], 11);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          maxZoom: 19
-        }).addTo(self.map);
-        self.map.on('click', function () {
-          if (self.infoWin) { self.map.closePopup(); self.infoWin = null; }
-        });
-        setTimeout(function () { self.map.invalidateSize(); }, 120);
-        statusText('무료 지도(Leaflet + OSM/CARTO) 로드 완료');
-      }
-      */
-      if (self.name === 'kakao') {
-        self.map = new kakao.maps.Map(mapEl, {
-          center: new kakao.maps.LatLng(DEPOT.lat, DEPOT.lng),
-          level: 9,
-          minLevel: 1,
-          maxLevel: 14
-        });
-        kakao.maps.event.addListener(self.map, 'click', function () {
-          if (self.infoWin) { self.infoWin.close(); self.infoWin = null; }
-        });
-        statusText('카카오 지도 로드 완료');
-      }
-      else {
-        self.map = new naver.maps.Map(mapEl, {
-          center: new naver.maps.LatLng(DEPOT.lat, DEPOT.lng),
-          zoom: 11,
-          minZoom: 7,
-          maxZoom: 18
-        });
-        naver.maps.Event.addListener(self.map, 'click', function () {
-          if (self.infoWin) { self.infoWin.close(); self.infoWin = null; }
-        });
-        statusText('네이버 지도 로드 완료');
-      }
-      if (selectedId != null) drawRoute(routes[selectedId]);
+      kakao.maps.event.addListener(this.map, 'click', function () {
+        if (self.infoWin) { self.infoWin.close(); self.infoWin = null; }
+      });
+      statusText('카카오 지도 로드 완료');
     },
 
     clear: function () {
-      var self = this, i;
-      for (i = 0; i < self.overlays.length; i++) {
-        // if (self.name === 'leaflet') self.overlays[i].remove(); // ← Leaflet 비활성화
-        self.overlays[i].setMap(null);
-      }
-      self.overlays = [];
-      self.clearLines();
-      if (self.infoWin) {
-        // if (self.name === 'leaflet') self.map.closePopup(); // ← Leaflet 비활성화
-        self.infoWin.close();
-        self.infoWin = null;
-      }
+      for (var i = 0; i < this.overlays.length; i++) this.overlays[i].setMap(null);
+      this.overlays = [];
+      this.clearLines();
+      if (this.infoWin) { this.infoWin.close(); this.infoWin = null; }
     },
 
     addPolyline: function (path, color) {
-      var self = this;
-      var line;
-      if (self.name === 'naver') {
-        line = new naver.maps.Polyline({
-          map: self.map,
-          path: path,
-          strokeColor: color,
-          strokeWeight: 6,
-          strokeOpacity: 0.95
-        });
-      } else if (self.name === 'kakao') {
-        line = new kakao.maps.Polyline({
-          map: self.map,
-          path: path,
-          strokeWeight: 6,
-          strokeColor: color,
-          strokeOpacity: 0.95
-        });
-      } /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-      else {
-        line = L.polyline(path, {
-          color: color,
-          weight: 6,
-          opacity: 0.95
-        }).addTo(self.map);
-      }
-      */
-      self.lineOverlays.push(line);
+      var line = new kakao.maps.Polyline({
+        map: this.map, path: path,
+        strokeWeight: 6, strokeColor: color, strokeOpacity: 0.95
+      });
+      this.lineOverlays.push(line);
     },
 
     clearLines: function () {
-      var self = this, i;
-      for (i = 0; i < self.lineOverlays.length; i++) {
-        // if (self.name === 'leaflet') self.lineOverlays[i].remove(); // ← Leaflet 비활성화
-        self.lineOverlays[i].setMap(null);
-      }
-      self.lineOverlays = [];
+      for (var i = 0; i < this.lineOverlays.length; i++) this.lineOverlays[i].setMap(null);
+      this.lineOverlays = [];
     },
 
     addMarker: function (o, opts) {
-      var self = this;
       var size = opts.size || 26;
-      // 마커 DOM 요소를 직접 만들어 두 API 모두에 전달 → 이후 스타일/라벨 제어 가능
       var el = document.createElement('div');
       el.className = 'nmarker' + (opts.depot ? ' depot' : '');
-      if (opts.depot) {
-        el.textContent = '🏢';
-      } else {
-        el.textContent = opts.label || '';
-        el.style.background = opts.color || '#8a4bff';
-      }
+      el.textContent = opts.depot ? '🏢' : (opts.label || '');
+      if (!opts.depot) el.style.background = opts.color || '#8a4bff';
       if (opts.name) el.dataset.name = opts.name;
       if (opts.title) el.title = opts.title;
 
-      var m;
-      if (self.name === 'naver') {
-        m = new naver.maps.Marker({
-          map: self.map,
-          position: self.latLng(o),
-          zIndex: opts.zIndex || 0,
-          title: opts.title || '',
-          icon: {
-            content: el,
-            size: new naver.maps.Size(size, size),
-            anchor: new naver.maps.Point(size / 2, size / 2)
-          }
-        });
-        if (opts.onClick) {
-          naver.maps.Event.addListener(m, 'click', function () { opts.onClick(m); });
-        }
-      } else if (self.name === 'kakao') {
-        // 커스텀 오버레이: 콘텐츠 DOM 요소를 직접 사용 (기본 xAnchor/yAnchor 0.5 → 좌표에 중앙 정렬)
-        m = new kakao.maps.CustomOverlay({
-          map: self.map,
-          position: self.latLng(o),
-          content: el,
-          zIndex: opts.zIndex || 0,
-          clickable: !!opts.onClick
-        });
-        if (opts.onClick) {
-          el.addEventListener('click', function () { opts.onClick(m); });
-        }
-      } /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-      else {
-        m = L.marker(self.latLng(o), {
-          icon: L.divIcon({
-            className: '',
-            html: el,
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2]
-          }),
-          title: opts.title || '',
-          zIndexOffset: opts.zIndex || 0
-        }).addTo(self.map);
-        if (opts.onClick) m.on('click', function () { opts.onClick(m); });
+      var m = new kakao.maps.CustomOverlay({
+        map: this.map, position: this.latLng(o),
+        content: el, zIndex: opts.zIndex || 0,
+        clickable: !!opts.onClick
+      });
+      if (opts.onClick) {
+        el.addEventListener('click', function () { opts.onClick(m); });
       }
-      */
-      self.overlays.push(m);
-      return { marker: m, el: el, office: o }; // 마커 + DOM 요소 + 대상 좌표
+      this.overlays.push(m);
+      return { marker: m, el: el, office: o };
     },
 
     showInfo: function (marker, html) {
-      var self = this;
-      if (self.name === 'naver') {
-        if (self.infoWin) self.infoWin.close(); // 이전 팝업이 쌓이지 않도록 먼저 닫기
-        self.infoWin = new naver.maps.InfoWindow({
-          borderWidth: 0,
-          disableAnchor: true,
-          backgroundColor: 'transparent',
-          content: html
-        });
-        self.infoWin.open(self.map, marker);
-      } else if (self.name === 'kakao') {
-        if (self.infoWin) self.infoWin.close();
-        self.infoWin = new kakao.maps.InfoWindow({ content: html, zIndex: 210 });
-        var pos = typeof marker.getPosition === 'function' ? marker.getPosition() : self.latLng(marker.office || marker);
-        self.infoWin.open(self.map, pos);
-      } /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-      else {
-        self.map.closePopup();
-        self.infoWin = L.popup({ closeButton: false })
-          .setLatLng(marker.getLatLng())
-          .setContent(html)
-          .openOn(self.map);
-      }
-      */
+      if (this.infoWin) this.infoWin.close();
+      this.infoWin = new kakao.maps.InfoWindow({ content: html, zIndex: 210 });
+      var pos = typeof marker.getPosition === 'function' ? marker.getPosition() : this.latLng(marker.office || marker);
+      this.infoWin.open(this.map, pos);
     },
 
     fit: function (points) {
-      var self = this;
-      if (self.name === 'naver') {
-        var b = new naver.maps.LatLngBounds();
-        points.forEach(function (p) { b.extend(p); });
-        self.map.fitBounds(b, 90, 90, 90, 90);
-      } else if (self.name === 'kakao') {
-        var kb = new kakao.maps.LatLngBounds();
-        points.forEach(function (p) { kb.extend(p); });
-        self.map.setBounds(kb, 90, 90, 90, 90);
-      } /* ── Leaflet 비활성화 (카카오 지도 사용) ──
-      else {
-        self.map.fitBounds(points, { padding: [50, 50] });
-      }
-      */
+      var kb = new kakao.maps.LatLngBounds();
+      points.forEach(function (p) { kb.extend(p); });
+      this.map.setBounds(kb, 90, 90, 90, 90);
     },
 
-    // 지도 정중앙으로 이동 (줌/상태 유지)
     panTo: function (latlng) {
-      var self = this;
-      if (!self.map) return;
-      if (self.name === 'naver') self.map.panTo(latlng);
-      else self.map.panTo(latlng);
+      if (this.map) this.map.panTo(latlng);
     }
   };
 
-  /* ---------------- 우측: 선택 노선 경로 그리기 ----------------
-     경로는 '첫 방문 우체국 → … → 물류센터' 순서로 표시합니다. */
+  /* ================================================================
+     10. 경로 그리기
+     ================================================================ */
   var depotMarker = null, stopMarkers = [], focusedStop = null;
 
   function stopInfoHtml(o, k, r) {
-    return '<div class="ninfow"><b>' + esc(o.name) + '</b>' +
+    var phoneLine = o.phone ? '<span class="ninfo-phone">📞 ' + esc(o.phone) + '</span>' : '';
+    return '<div class="ninfow">' +
+      '<b>' + esc(o.name) + '</b>' +
       '<span>' + esc(o.addr) + '</span>' +
+      phoneLine +
       '<em>방문 순서 ' + (k + 1) + ' / ' + r.stops.length + ' · ' + esc(r.name) + '</em></div>';
   }
 
   function drawRoute(r) {
     if (!mapApi.map) return;
     mapApi.clear();
-    depotMarker = null;
-    stopMarkers = [];
-    focusedStop = null;
+    depotMarker = null; stopMarkers = []; focusedStop = null;
 
-    // 경로: 첫 우체국 → … → 마지막 우체국 → 물류센터
+    // 직선 경로
     var path = r.stops.map(function (o) { return mapApi.latLng(o); });
     path.push(mapApi.latLng(DEPOT));
-
     mapApi.addPolyline(path, r.lineColor);
 
-    // 물류센터 마커 (도착지 — 경로 끝)
+    // 물류센터 마커
     depotMarker = mapApi.addMarker(DEPOT, {
-      depot: true,
-      size: 36,
-      zIndex: 100,
-      name: DEPOT.name,
-      title: esc(DEPOT.name)
+      depot: true, size: 36, zIndex: 100,
+      name: DEPOT.name, title: esc(DEPOT.name),
+      onClick: function () { toggleStopLabel('depot'); }
     });
 
-    // 방문 우체국 마커 (방문 순서 번호)
+    // 우체국 마커
     r.stops.forEach(function (o, k) {
       var sm = mapApi.addMarker(o, {
-        label: String(k + 1),
-        color: r.borderColor,
-        size: 26,
-        zIndex: 50,
-        name: o.name,
-        title: esc(o.name),
-        onClick: function (marker) {
-          mapApi.showInfo(marker, stopInfoHtml(o, k, r));
-        }
+        label: String(k + 1), color: r.borderColor,
+        size: 26, zIndex: 50, name: o.name, title: esc(o.name),
+        onClick: function () { toggleStopLabel(k); }
       });
       stopMarkers.push(sm);
     });
 
-    // 선택 노선이 화면에 맞게 확대/이동
     mapApi.fit(path);
 
-    // 실제 도로 경로(OSRM)를 구할 수 있으면 직선 대신 도로 폴리라인 표시
+    // 실제 도로 경로 (OSRM)
     if (USE_ROAD && !ROAD_FAILED) {
       statusText('실제 도로 경로 표시 중…');
-      var geoKey = routeGeoSig(r); // 재최적화로 id가 재사용돼도 경유지가 같을 때만 적용
+      var geoKey = routeGeoSig(r);
       fetchRouteGeometry(r, function (geo) {
         var cur = routes[selectedId];
         if (!geo || !cur || routeGeoSig(cur) !== geoKey) return;
-        var pts = geo.map(function (c) {
-          if (mapApi.name === 'naver') return new naver.maps.LatLng(c[1], c[0]);
-          if (mapApi.name === 'kakao') return new kakao.maps.LatLng(c[1], c[0]);
-          // return [c[1], c[0]]; // ← Leaflet 전용 [lat, lng] 배열 포맷 (비활성화)
-        });
+        var pts = geo.map(function (c) { return new kakao.maps.LatLng(c[1], c[0]); });
         mapApi.clearLines();
         mapApi.addPolyline(pts, r.lineColor);
         statusText('실제 도로 경로 표시 완료');
@@ -880,22 +817,21 @@
     }
   }
 
-  /* ---------------- 경유지 포커스 (지도 중앙 이동 + 마커 확대/이름) ---------------- */
+  /* ================================================================
+     11. 경유지 포커스
+     ================================================================ */
   function updateStopFocusUI() {
-    // 마커 강조 (숫자 확대 + 이름 라벨)
     if (depotMarker) depotMarker.el.classList.toggle('focus', focusedStop === 'depot');
     stopMarkers.forEach(function (sm, k) {
       if (sm) sm.el.classList.toggle('focus', focusedStop === k);
     });
-    // 하단 경유 목록 칩 강조
     Array.prototype.forEach.call(nowEl.querySelectorAll('.nr-stop'), function (ch) {
       ch.classList.toggle('focus', ch.dataset.stop === String(focusedStop));
     });
   }
 
-  // 경유지/물류센터 선택 → 현재 상태 유지하며 지도 정중앙 이동 + 마커 강조
   function focusStop(k) {
-    var idx = k === 'depot' ? 'depot' : Number(k); // 문자열 → 숫자 통일 (=== 비교용)
+    var idx = k === 'depot' ? 'depot' : Number(k);
     var sm = idx === 'depot' ? depotMarker : stopMarkers[idx];
     if (!sm || !mapApi.map) return;
     focusedStop = idx;
@@ -903,320 +839,113 @@
     mapApi.panTo(mapApi.latLng(sm.office));
   }
 
-  /* ---------------- (선택) 주소 → 좌표 자동 보정 (네이버 전용) ---------------- */
-  function refineCoordinates(done) {
-    if (mapApi.name !== 'naver' || !NAVER_CFG.subKey || !naver.maps.Service || !OFFICES.length) { done(); return; }
-    statusEl.hidden = false;
-    statusEl.textContent = '주소 → 좌표 보정 중 (0/' + OFFICES.length + ')…';
+  // 지도 마커 클릭 시: 라벨 토글 (지도 이동 없음)
+  function toggleStopLabel(k) {
+    var idx = (k === 'depot') ? 'depot' : Number(k);
+    var sm = idx === 'depot' ? depotMarker : stopMarkers[idx];
+    if (!sm) return;
+    // 같은 거 다시 클릭 → 해제
+    if (focusedStop === idx) {
+      focusedStop = null;
+    } else {
+      focusedStop = idx;
+    }
+    updateStopFocusUI();
+  }
 
-    var cache = {};
-    try { cache = JSON.parse(localStorage.getItem('nav_geocode') || '{}'); } catch (e) { /* 무시 */ }
-    var pending = OFFICES.length, doneCount = 0, failCount = 0, finished = false;
+  /* ================================================================
+     12. 오버레이 모달 (비용산정기준, 기존물량, 기준자료, 채팅, 파일)
+     ================================================================ */
+  function makeModal(overlayId, btnId, frameId, closeMsgType) {
+    var overlayEl = $(overlayId), btnEl = $(btnId), frameEl = $(frameId);
+    if (!overlayEl || !btnEl) return { open: function () {}, close: function () {} };
 
-    // 안전장치: geocode 응답이 없어도 15초 안에는 무조건 완료 처리
-    var watchdog = setTimeout(function () {
-      if (!finished) { pending = 1; finish(); }
-    }, 15000);
-
-    var finish = function () {
-      if (finished) return;
-      if (--pending > 0) return;
-      finished = true;
-      clearTimeout(watchdog);
-      statusEl.textContent = '좌표 보정 완료 (' + doneCount + '곳' + (failCount ? ', 실패 ' + failCount + '곳' : '') + ')';
-      setTimeout(function () { statusEl.hidden = true; }, 3000);
-      done();
-    };
-    var tick = function () {
-      statusEl.textContent = '주소 → 좌표 보정 중 (' + (doneCount + failCount) + '/' + OFFICES.length + ')…';
-    };
-
-    OFFICES.forEach(function (o) {
-      var key = o.addr;
-      if (cache[key]) {
-        o.lat = cache[key].lat; o.lng = cache[key].lng;
-        doneCount++; tick(); finish();
-        return;
+    function open() {
+      overlayEl.hidden = false;
+      document.body.style.overflow = 'hidden';
+      if (!frameEl.getAttribute('src')) {
+        frameEl.src = frameEl.getAttribute('data-src') || '';
+      } else {
+        frameEl.src = frameEl.src; // 새로고침
       }
-      naver.maps.Service.geocode({ query: key }, function (status, res) {
-        try {
-          var a = res && res.v2 && res.v2.addresses && res.v2.addresses[0];
-          if (status === naver.maps.Service.Status.OK && a) {
-            o.lat = parseFloat(a.y); o.lng = parseFloat(a.x);
-            cache[key] = { lat: o.lat, lng: o.lng };
-            doneCount++;
-          } else { failCount++; }
-        } catch (e) { failCount++; }
-        try { localStorage.setItem('nav_geocode', JSON.stringify(cache)); } catch (e) { /* 무시 */ }
-        tick(); finish();
-      });
-    });
-  }
-
-  /* ---------------- 무료 좌표 자동 변환 (Nominatim, 키 불필요) ----------------
-     좌표(lat/lng)가 없는 우체국을 도로명 주소로 조회합니다.
-     1초당 1건 제한을 지키며 순차 처리 → 결과는 브라우저에 캐시되어
-     다음 방문부터는 즉시 로드됩니다. 실패 시 구 단위 근사 좌표 유지. */
-  // 이전에 변환해 둔 좌표를 데이터에 적용 (재방문 시 첫 렌더링부터 정확)
-  function applyGeocodeCache() {
-    var cache = {};
-    try { cache = JSON.parse(localStorage.getItem('nav_geo_nom') || '{}'); } catch (e) { return; }
-    OFFICES.forEach(function (o) {
-      var c = cache[o.addr];
-      if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) {
-        o.lat = c.lat; o.lng = c.lng;
-      }
-    });
-  }
-
-  function resolveCoordinates(done) {
-    if (!CFG.geocode) { done(0, 0); return; }
-    var need = OFFICES.filter(function (o) { return !Number.isFinite(o.lat) || !Number.isFinite(o.lng); });
-    if (!need.length) { done(0, 0); return; }
-
-    var cache = {};
-    try { cache = JSON.parse(localStorage.getItem('nav_geo_nom') || '{}'); } catch (e) { /* 무시 */ }
-    applyGeocodeCache();
-    var queue = need.filter(function (o) {
-      return !(cache[o.addr] && Number.isFinite(cache[o.addr].lat) && Number.isFinite(cache[o.addr].lng));
-    });
-    if (!queue.length) { done(0, 0); return; }
-
-    statusEl.hidden = false;
-    statusEl.textContent = '무료 좌표 변환 중 (0/' + queue.length + ')…';
-    var i = 0, okCount = 0, failCount = 0;
-
-    function next() {
-      if (i >= queue.length) {
-        statusEl.textContent = '좌표 변환 완료 (' + okCount + '곳' + (failCount ? ', 실패 ' + failCount + '곳' : '') + ') — 노선 재계산';
-        setTimeout(function () { statusEl.hidden = true; }, 3200);
-        try { localStorage.setItem('nav_geo_nom', JSON.stringify(cache)); } catch (e) { /* 무시 */ }
-        done(okCount, failCount);
-        return;
-      }
-      var o = queue[i++];
-      var q = o.addr.replace(/\s*\([^)]*\)\s*$/, '').trim();
-      // 응답이 없어도 큐가 멈추지 않도록 8초 타임아웃
-      var ctrl = new AbortController();
-      var tmr = setTimeout(function () { ctrl.abort(); }, 8000);
-      fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q), {
-        headers: { 'Accept-Language': 'ko' },
-        signal: ctrl.signal
-      })
-        .then(function (r) {
-          if (!r.ok) throw new Error('http ' + r.status);
-          return r.json();
-        })
-        .then(function (arr) {
-          clearTimeout(tmr);
-          if (arr && arr.length) {
-            o.lat = parseFloat(arr[0].lat);
-            o.lng = parseFloat(arr[0].lon);
-            cache[o.addr] = { lat: o.lat, lng: o.lng };
-            // 성공할 때마다 저장 — 중간에 닫아도 진행이 보존됨
-            try { localStorage.setItem('nav_geo_nom', JSON.stringify(cache)); } catch (e) { /* 무시 */ }
-            okCount++;
-          } else { failCount++; }
-          statusEl.textContent = '무료 좌표 변환 중 (' + (okCount + failCount) + '/' + queue.length + ')…';
-          setTimeout(next, 1100);
-        })
-        .catch(function () {
-          clearTimeout(tmr);
-          failCount++;
-          statusEl.textContent = '무료 좌표 변환 중 (' + (okCount + failCount) + '/' + queue.length + ')…';
-          setTimeout(next, 1100);
-        });
     }
-    next();
-  }
-
-  /* ---------------- 비용산정기준 오버레이 (standard.html iframe) ---------------- */
-  var overlayEl = $('standard-overlay'), costBtn = $('cost-standard-btn');
-  var stdFrame = $('standard-frame');
-
-  function openStandard() {
-    overlayEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    // 첫 열림: src 를 지정해 로드 / 이후 열림: 새로고침해 DB 최신 데이터 반영
-    if (!stdFrame.getAttribute('src')) {
-      stdFrame.src = stdFrame.getAttribute('data-src') || 'standard.html';
-    } else {
-      stdFrame.src = stdFrame.src;
+    function close() {
+      overlayEl.hidden = true;
+      document.body.style.overflow = '';
     }
-  }
-  function closeStandard() {
-    overlayEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  // 열림 상태에서는 오버레이가 화면을 덮어 뒤의 노선 화면은 조작할 수 없음.
-  // 닫기는 standard.html 의 "닫기" 버튼이 부모로 postMessage 를 보내 처리.
-  // ※ 출처(origin) 검증은 하지 않음: file:// 이나 일부 브라우저에서
-  //    origin 값이 제각각이라 닫기 메시지가 무시될 수 있기 때문. (닫기뿐이라 보안 영향 없음)
-  function bindStandardModal() {
-    if (!overlayEl || !costBtn) return;
-    costBtn.addEventListener('click', openStandard);
+
+    btnEl.addEventListener('click', open);
     window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'close-cost-standard') closeStandard();
+      if (e.data && e.data.type === closeMsgType) close();
     });
-    // 편의: 열려 있는 동안 Esc 키로도 닫기 (열린 쪽을 닫음)
-    document.addEventListener('keydown', function (e) {
-      if (e.key !== 'Escape') return;
-      if (chatOverlayEl && !chatOverlayEl.hidden) closeChat();
-      else if (filesOverlayEl && !filesOverlayEl.hidden) closeFiles();
-      else if (dataOverlayEl && !dataOverlayEl.hidden) closeData();
-      else if (loadedOverlayEl && !loadedOverlayEl.hidden) closeLoaded();
-      else if (!overlayEl.hidden) closeStandard();
-    });
+    return { open: open, close: close, isOpen: function () { return !overlayEl.hidden; } };
   }
 
-  /* ---------------- 기존물량등록 오버레이 (loaded.html iframe) ---------------- */
-  var loadedOverlayEl = $('loaded-overlay'), loadedBtn = $('loaded-btn');
-  var loadedFrame = $('loaded-frame');
+  var modalStandard = makeModal('standard-overlay', 'cost-standard-btn', 'standard-frame', 'close-cost-standard');
+  var modalLoaded   = makeModal('loaded-overlay', 'loaded-btn', 'loaded-frame', 'close-loaded');
+  var modalData     = makeModal('data-overlay', 'data-btn', 'data-frame', 'close-data-viewer');
+  var modalChat     = makeModal('chat-overlay', 'chat-btn', 'chat-frame', 'close-chat');
+  var modalFiles    = makeModal('files-overlay', 'files-btn', 'files-frame', 'close-files');
 
-  function openLoaded() {
-    loadedOverlayEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    // 첫 열림: src 지정 / 이후 열림: 새로고침해 DB 최신 데이터 반영
-    if (!loadedFrame.getAttribute('src')) {
-      loadedFrame.src = loadedFrame.getAttribute('data-src') || 'loaded.html';
-    } else {
-      loadedFrame.src = loadedFrame.src;
-    }
-  }
-  function closeLoaded() {
-    loadedOverlayEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  function bindLoadedModal() {
-    if (!loadedOverlayEl || !loadedBtn) return;
-    loadedBtn.addEventListener('click', openLoaded);
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'close-loaded') closeLoaded();
-    });
-  }
+  // Esc 키로 닫기
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (modalFiles.isOpen()) modalFiles.close();
+    else if (modalChat.isOpen()) modalChat.close();
+    else if (modalData.isOpen()) modalData.close();
+    else if (modalLoaded.isOpen()) modalLoaded.close();
+    else if (modalStandard.isOpen()) modalStandard.close();
+  });
 
-  /* ---------------- 기준자료 조회 오버레이 (data-viewer.html iframe) ---------------- */
-  var dataOverlayEl = $('data-overlay'), dataBtn = $('data-btn');
-  var dataFrame = $('data-frame');
-
-  function openData() {
-    dataOverlayEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 데이터 반영
-    if (!dataFrame.getAttribute('src')) {
-      dataFrame.src = dataFrame.getAttribute('data-src') || 'data-viewer.html';
-    } else {
-      dataFrame.src = dataFrame.src;
-    }
-  }
-  function closeData() {
-    dataOverlayEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  function bindDataModal() {
-    if (!dataOverlayEl || !dataBtn) return;
-    dataBtn.addEventListener('click', openData);
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'close-data-viewer') closeData();
-    });
-  }
-
-  /* ---------------- 질의/응답 채팅 오버레이 (chat.html iframe) ---------------- */
-  var chatOverlayEl = $('chat-overlay'), chatBtn = $('chat-btn');
-  var chatFrame = $('chat-frame');
-
-  function openChat() {
-    chatOverlayEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 대화 반영
-    if (!chatFrame.getAttribute('src')) {
-      chatFrame.src = chatFrame.getAttribute('data-src') || 'chat.html';
-    } else {
-      chatFrame.src = chatFrame.src;
-    }
-  }
-  function closeChat() {
-    chatOverlayEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  function bindChatModal() {
-    if (!chatOverlayEl || !chatBtn) return;
-    chatBtn.addEventListener('click', openChat);
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'close-chat') closeChat();
-    });
-  }
-
-  /* ---------------- 다운/로드 오버레이 (files.html iframe) ---------------- */
-  var filesOverlayEl = $('files-overlay'), filesBtn = $('files-btn');
-  var filesFrame = $('files-frame');
-
-  function openFiles() {
-    filesOverlayEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    // 첫 열림: src 지정 / 이후 열림: 새로고침해 최신 데이터 반영
-    if (!filesFrame.getAttribute('src')) {
-      filesFrame.src = filesFrame.getAttribute('data-src') || 'files.html';
-    } else {
-      filesFrame.src = filesFrame.src;
-    }
-  }
-  function closeFiles() {
-    filesOverlayEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  function bindFilesModal() {
-    if (!filesOverlayEl || !filesBtn) return;
-    filesBtn.addEventListener('click', openFiles);
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'close-files') closeFiles();
-    });
-  }
-
-  /* ---------------- 초기화 ---------------- */
+  /* ================================================================
+     13. 초기화
+     ================================================================ */
   function init() {
-    // 지도 배지 (있는 경우에만 표시)
-    if (badgeEl) {
-      var badgeMap = {
-        kakao: { text: '지도 : 카카오 지도', title: '카카오 지도 JavaScript API' },
-        naver: { text: '지도 : 네이버 지도', title: '네이버 지도 JavaScript API v3' }
-      };
-      var bd = badgeMap[mapApi.name] || { text: '지도 : 무료 (키 불필요)', title: '무료 지도 (Leaflet + OpenStreetMap/CARTO 타일) — 키 없이 사용 가능' };
-      badgeEl.textContent = bd.text;
-      badgeEl.title = bd.title;
-    }
-
     if (!OFFICES.length) {
-      listEl.innerHTML = '<div class="empty-note">우체국 데이터가 없습니다.<br/>js/node-navigation-data.js 를 확인해주세요.</div>';
-      return;
+      listEl.innerHTML = '<div class="empty-note">우체국 데이터를 불러오는 중입니다…</div>';
     }
 
-    // 하단 경유 목록 칩 클릭 → 해당 위치로 지도 중앙 이동 + 마커 강조
+    buildStopsSeg();
+
+    // 하단 경유지 칩 클릭
     nowEl.addEventListener('click', function (e) {
       var ch = e.target && e.target.closest ? e.target.closest('.nr-stop') : null;
-      if (!ch) return;
-      focusStop(ch.dataset.stop);
+      if (ch) focusStop(ch.dataset.stop);
     });
 
-    applyGeocodeCache(); // 이전에 변환한 좌표를 첫 렌더링부터 사용
-    buildStopsSeg();
-    bindStandardModal();
-    bindLoadedModal();
-    bindDataModal();
-    bindChatModal();
-    bindFilesModal();
-    reoptimize(); // 첫 노선 자동 선택 → 지도에도 첫 노선 경로 (근사 좌표 기준)
-
+    // 지도 로드 → 카카오 API 검색 → 도로 거리 → 노선 최적화
     mapApi.load(function () {
       mapApi.init();
-      // 좌표 확정 → 도로 거리 행렬 계산(캐시 사용) → 노선 재계산
-      var finish = function () {
-        computeRoadMatrix(function () { reoptimize(); });
-      };
-      if (mapApi.name === 'naver' && NAVER_CFG.subKey && CFG.geocode) {
-        refineCoordinates(finish);
+
+      function afterSearch() {
+        reoptimize(); // 첫 렌더링
+        computeRoadMatrix(function () { reoptimize(); }); // 도로 거리 반영 후 재계산
+      }
+
+      // 카카오 로컬 API로 우체국 검색 시도
+      if (KAKAO_REST_KEY) {
+        // 캐시가 있으면 먼저 로드 (즉시 렌더링)
+        loadCachedOffices();
+
+        // 백그라운드에서 최신 데이터 검색
+        searchPostOfficesFromKakao(function (ok) {
+          if (ok) {
+            afterSearch(); // 검색 성공 → 검색 결과로 재계산
+          } else if (OFFICES.length > 0) {
+            afterSearch(); // 검색 실패 but 캐시 있음 → 기존 데이터로 동작
+          } else {
+            // 검색도 실패, 캐시도 없음
+            listEl.innerHTML = '<div class="empty-note">' +
+              '⚠️ 우체국 데이터를 불러올 수 없습니다<br>' +
+              '카카오 REST API 키를 확인해주세요<br>' +
+              '<small>js/config.keys.js → restApiKey</small></div>';
+          }
+        });
       } else {
-        resolveCoordinates(finish);
+        statusText('카카오 REST API 키 미설정 — 우체국 검색 불가');
+        listEl.innerHTML = '<div class="empty-note">' +
+          '⚠️ 카카오 REST API 키가 설정되지 않았습니다<br>' +
+          '<small>js/config.keys.js 에 restApiKey 를 입력해주세요</small></div>';
       }
     });
   }

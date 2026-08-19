@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>노선 비교 · 중부권광역우편물류센터</title>
+  <link rel="stylesheet" href="css/node-compare.css" />
+</head>
+<body>
+  <!-- ===================== 헤더 ===================== -->
+  <header class="topbar">
+    <a href="index.html" class="brand" style="text-decoration:none;color:inherit;">
+      <span class="dot"></span>
+      <div class="brand-text">
+        <b>중부권광역우편물류센터</b>
+        <span class="brand-sub">노선 비교</span>
+      </div>
+    </a>
+    <div class="header-right">
+      <a href="node-navigation.html" class="src-badge cost-btn" style="text-decoration:none;">🗺️ 노선 조회</a>
+    </div>
+  </header>
+
+  <!-- ===================== 본문: 좌25% / 가운데50% / 우25% ===================== -->
+  <main class="compare-layout">
+
+    <!-- ====== 좌측 패널: 경로 A ====== -->
+    <aside class="route-panel left" aria-label="경로 A">
+      <div class="panel-head">
+        <h2 class="panel-title">경로 A</h2>
+        <span class="panel-side-tag left">LEFT</span>
+      </div>
+
+      <!-- 입력 영역 -->
+      <div class="route-inputs">
+        <div class="input-row">
+          <span class="input-label dep">출발</span>
+          <input class="route-input" id="a-dep" type="text" placeholder="출발지 검색…" data-side="a" data-role="dep" />
+        </div>
+        <div id="a-waypoints" class="waypoint-list"></div>
+        <div class="input-row">
+          <span class="input-label arr">도착</span>
+          <input class="route-input" id="a-arr" type="text" placeholder="도착지 검색…" data-side="a" data-role="arr" />
+          <div class="waypoint-controls">
+            <button class="waypoint-btn" id="a-add-wp" type="button" title="경유지 추가">+</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="search-route-btn" id="a-search-btn" type="button">🔍 길찾기</button>
+
+      <!-- 검색 결과 -->
+      <div class="results-area">
+        <div class="results-head">
+          <span id="a-results-title">검색 결과</span>
+          <span id="a-results-count" style="font-size:0.7rem;color:var(--dim)">0건</span>
+        </div>
+        <div id="a-results-list" class="results-list">
+          <div class="result-empty">출발지나 도착지를 입력하고 검색하세요</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ====== 가운데: 지도 + 비교정보 ====== -->
+    <section class="center-col" aria-label="지도 및 비교">
+      <div class="center-map" id="center-map">
+        <div id="map" style="width:100%;height:100%;"></div>
+        <div id="map-empty" class="map-empty">
+          <div class="map-empty-text">
+            <span class="big">🗺️</span>
+            양쪽에서 출발지·도착지를 입력한 뒤<br>
+            <b>길찾기</b> 버튼을 눌러주세요
+          </div>
+        </div>
+        <div id="map-status" class="map-status" hidden></div>
+      </div>
+
+      <div class="compare-info" id="compare-info">
+        <!-- 시소 영역 -->
+        <div class="compare-left">
+          <div class="seesaw-wrap" id="seesaw-wrap">
+            <div class="seesaw-container">
+              <div class="seesaw-pillar"></div>
+              <div class="seesaw-beam" id="seesaw-beam"></div>
+              <!-- 왼쪽 캐릭터 -->
+              <div class="seesaw-char left-char" id="char-left">
+                <div class="char-body">🧑</div>
+                <span class="char-label">경로 A</span>
+              </div>
+              <!-- 오른쪽 캐릭터 -->
+              <div class="seesaw-char right-char" id="char-right">
+                <div class="char-body">🧑</div>
+                <span class="char-label">경로 B</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 비교 테이블 -->
+        <div class="compare-right" id="compare-right">
+          <div class="compare-empty" id="compare-empty">
+            양쪽 모두 길찾기를 완료하면 비교 정보가 표시됩니다
+          </div>
+          <table class="compare-table" id="compare-table" hidden>
+            <thead>
+              <tr>
+                <th></th>
+                <th class="left-val">경로 A</th>
+                <th class="right-val">경로 B</th>
+                <th class="diff-val">차이</th>
+              </tr>
+            </thead>
+            <tbody id="compare-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== 우측 패널: 경로 B ====== -->
+    <aside class="route-panel right" aria-label="경로 B">
+      <div class="panel-head">
+        <h2 class="panel-title">경로 B</h2>
+        <span class="panel-side-tag right">RIGHT</span>
+      </div>
+
+      <!-- 입력 영역 -->
+      <div class="route-inputs">
+        <div class="input-row">
+          <span class="input-label dep">출발</span>
+          <input class="route-input" id="b-dep" type="text" placeholder="출발지 검색…" data-side="b" data-role="dep" />
+        </div>
+        <div id="b-waypoints" class="waypoint-list"></div>
+        <div class="input-row">
+          <span class="input-label arr">도착</span>
+          <input class="route-input" id="b-arr" type="text" placeholder="도착지 검색…" data-side="b" data-role="arr" />
+          <div class="waypoint-controls">
+            <button class="waypoint-btn" id="b-add-wp" type="button" title="경유지 추가">+</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="search-route-btn" id="b-search-btn" type="button">🔍 길찾기</button>
+
+      <!-- 검색 결과 -->
+      <div class="results-area">
+        <div class="results-head">
+          <span id="b-results-title">검색 결과</span>
+          <span id="b-results-count" style="font-size:0.7rem;color:var(--dim)">0건</span>
+        </div>
+        <div id="b-results-list" class="results-list">
+          <div class="result-empty">출발지나 도착지를 입력하고 검색하세요</div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- 스크립트 -->
+  <script src="js/config.keys.js"></script>
+  <script src="js/node-compare.js"></script>
+</body>
+</html>

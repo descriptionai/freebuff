@@ -9,14 +9,15 @@
 <body>
   <!-- ===================== 헤더 ===================== -->
   <header class="topbar">
-    <div class="brand">
+    <a href="index.html" class="brand" style="text-decoration:none;color:inherit;">
       <span class="dot"></span>
       <div class="brand-text">
         <b>중부권광역우편물류센터</b>
         <span class="brand-sub">노선별 네비게이션</span>
       </div>
-    </div>
+    </a>
     <div class="header-right">
+      <a href="node-compare.html" class="src-badge cost-btn" style="text-decoration:none;">🔀 노선 비교</a>
       <button id="cost-standard-btn" class="src-badge cost-btn" type="button" title="노선 비용 산정 기준을 열기">⚙ 비용산정기준</button>
       <button id="loaded-btn" class="src-badge cost-btn" type="button" title="기존물량등록 화면을 열기">📦 기존물량등록</button>
       <button id="data-btn" class="src-badge cost-btn" type="button" title="기준자료(단가표·적재수량·조사결과) 조회">📊 기준자료</button>
@@ -38,6 +39,17 @@
       <div class="opt-row">
         <span class="opt-lbl" title="노선당 방문 우체국 수를 바꾸면 최적 노선 개수가 재계산됩니다">노선당 방문</span>
         <div id="stops-seg" class="seg" role="group" aria-label="노선당 방문 우체국 수"></div>
+      </div>
+
+      <!-- 검색 필터 -->
+      <div class="search-bar">
+        <select id="search-type" class="search-select">
+          <option value="all">전체</option>
+          <option value="start">출발</option>
+          <option value="end">도착</option>
+        </select>
+        <input id="search-input" class="search-input" type="text" placeholder="우체국명 입력…" />
+        <button id="search-btn" class="search-btn" type="button">조회</button>
       </div>
 
       <!-- 노선 카드 목록 (JS로 생성) -->
@@ -65,11 +77,7 @@
     </section>
   </main>
 
-  <footer class="footer">
-    좌측에서 노선을 선택하면 우측 지도에 실제 도로 경로가 표시됩니다 ·
-    노선 최적화: Clarke-Wright + 2-opt · 거리는 실제 도로 주행 거리(OSRM, 키 불필요) 기준
-    (<code>js/node-navigation-data.js</code> 에서 우체국 목록·제약 조건·지도 종류 수정 가능)
-  </footer>
+
 
   <!-- 비용산정기준 오버레이 (standard.html 을 중앙 80% 크기로 표시) -->
   <div id="standard-overlay" class="standard-overlay" hidden>
@@ -107,7 +115,8 @@
     </div>
   </div>
 
-  <!-- 스크립트 로드 순서: 데이터(설정) → 앱 로직 -->
+  <!-- 스크립트 로드 순서: API 키 → 설정 → 앱 로직 -->
+  <script src="js/config.keys.js"></script>
   <script src="js/node-navigation-data.js"></script>
   <script src="js/node-navigation.js"></script>
 </body>
